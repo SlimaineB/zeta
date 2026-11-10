@@ -1880,6 +1880,16 @@ For example, with <code>image.registry=ghcr.io/owner</code> and tag <code>0.1.0<
 <td>OIDC issuer; required when <code>auth.dev=false</code></td>
 </tr>
 <tr>
+<td><code>auth.oidc.discoveryURL</code></td>
+<td>empty</td>
+<td>Discovery URL; defaults to the issuer</td>
+</tr>
+<tr>
+<td><code>auth.oidc.authorizationURL</code></td>
+<td>empty</td>
+<td>Authorization endpoint override</td>
+</tr>
+<tr>
 <td><code>auth.oidc.clientID</code></td>
 <td><code>zeta-portal</code></td>
 <td>OIDC client ID</td>
@@ -1898,6 +1908,31 @@ For example, with <code>image.registry=ghcr.io/owner</code> and tag <code>0.1.0<
 <td><code>auth.oidc.scopes</code></td>
 <td><code>openid,profile,email,groups</code></td>
 <td>OIDC scopes</td>
+</tr>
+<tr>
+<td><code>auth.oidc.allowedGroups</code></td>
+<td>empty</td>
+<td>Comma-separated allowed groups</td>
+</tr>
+<tr>
+<td><code>auth.oidc.allowedUsers</code></td>
+<td>empty</td>
+<td>Comma-separated allowed usernames, emails, or subjects</td>
+</tr>
+<tr>
+<td><code>auth.oidc.usernameClaim</code></td>
+<td><code>preferred_username</code></td>
+<td>Username claim</td>
+</tr>
+<tr>
+<td><code>auth.oidc.emailClaim</code></td>
+<td><code>email</code></td>
+<td>Email claim</td>
+</tr>
+<tr>
+<td><code>auth.oidc.groupsClaim</code></td>
+<td><code>groups</code></td>
+<td>Groups claim</td>
 </tr>
 </tbody>
 </table>
@@ -1919,6 +1954,14 @@ Helm release values:</p>
 </code></pre></div>
 <p>The Secret must contain the key <code>session-key</code>. <code>oidc-client-secret</code> is optional
 and is read by the portal through <code>ZETA_OIDC_CLIENT_SECRET</code>.</p>
+<p>Set <code>auth.oidc.discoveryURL</code> when the portal must fetch discovery from an
+internal address while <code>auth.oidc.issuer</code> remains the public issuer. Set
+<code>auth.oidc.authorizationURL</code> when the browser must use a different authorization
+endpoint than the one in the discovery document.</p>
+<p><code>auth.oidc.allowedGroups</code> and <code>auth.oidc.allowedUsers</code> are optional allowlists.
+When set, a user must match at least one group and at least one user entry.
+Entries in <code>allowedUsers</code> can be usernames, emails, or subjects. Claim names can
+be changed for providers such as Okta or Microsoft Entra ID.</p>
 <h3 id="persistence">Persistence<a class="headerlink" href="#persistence" title="Permanent link">&para;</a></h3>
 <table>
 <thead>

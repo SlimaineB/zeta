@@ -1706,8 +1706,10 @@ is still terminating, the request fails with:</p>
 <p>Retry after the volume finalizer completes.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Environments share the <code>zeta-poc</code> namespace and the portal RBAC. There is no
-  per-group isolation yet.</li>
+<li>Environments share the <code>zeta-poc</code> namespace and the portal RBAC. Environments
+  are owner-scoped for lifecycle, exec, and sync operations; <code>admin</code> / <code>admins</code>
+  group members can manage any environment. There is no full per-group
+  isolation yet.</li>
 <li>Sync is last-writer-wins; simultaneous edits on both sides can conflict.</li>
 <li><code>local-path</code> volumes are node-local. Use an EBS-backed StorageClass in
   production.</li>

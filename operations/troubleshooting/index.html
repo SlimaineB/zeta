@@ -717,6 +717,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#oidc-sign-in-fails-or-redirects-back-to-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OIDC sign-in fails or redirects back to login
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ingress-404" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1694,6 +1705,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#oidc-sign-in-fails-or-redirects-back-to-login" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        OIDC sign-in fails or redirects back to login
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ingress-404" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2020,6 +2042,20 @@
 <h3 id="not-authenticated-or-session-expired"><code>not authenticated</code> or <code>session expired</code><a class="headerlink" href="#not-authenticated-or-session-expired" title="Permanent link">&para;</a></h3>
 <p>The cookie is invalid or expired. Run <code>zeta login</code> again. If the portal restarted
 without a fixed <code>--oidc-session-key</code>, all sessions were invalidated.</p>
+<h3 id="oidc-sign-in-fails-or-redirects-back-to-login">OIDC sign-in fails or redirects back to login<a class="headerlink" href="#oidc-sign-in-fails-or-redirects-back-to-login" title="Permanent link">&para;</a></h3>
+<p>Check that:</p>
+<ul>
+<li>the provider callback URL is exactly <code>https://&lt;host&gt;/oidc/callback</code>;</li>
+<li><code>--oidc-issuer</code> matches the <code>issuer</code> returned by discovery;</li>
+<li><code>--oidc-discovery-url</code> is reachable from the portal if you use a split-horizon
+  discovery endpoint;</li>
+<li>the user matches <code>--oidc-allowed-groups</code> and <code>--oidc-allowed-users</code> when those
+  allowlists are configured;</li>
+<li>all replicas use the same <code>--oidc-session-key</code>; the short-lived <code>zeta_oidc</code>
+  flow cookie is signed with it.</li>
+</ul>
+<p>If the provider returns groups only through userinfo, make sure the <code>groups</code>
+scope is requested or set <code>--oidc-groups-claim</code> to the claim your provider uses.</p>
 <h3 id="ingress-404">Ingress 404<a class="headerlink" href="#ingress-404" title="Permanent link">&para;</a></h3>
 <p>The <code>Host</code> header does not match <code>zeta.local</code>. Check the hosts entry or use a
 port-forward:</p>

@@ -1656,10 +1656,14 @@ see <a href="../../developer/installation/">Install the CLI</a>.</p>
 <a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="w">  </span>--set<span class="w"> </span>auth.oidc.clientID<span class="o">=</span>zeta-portal<span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="w">  </span>--set<span class="w"> </span>auth.oidc.clientSecret<span class="o">=</span><span class="s1">'&lt;secret&gt;'</span><span class="w"> </span><span class="se">\</span>
 <a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="w">  </span>--set<span class="w"> </span>auth.oidc.redirectURL<span class="o">=</span>https://zeta.example.com/oidc/callback<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span>--set<span class="w"> </span>auth.secureCookie<span class="o">=</span><span class="nb">true</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">  </span>--set<span class="w"> </span>auth.oidc.allowedGroups<span class="o">=</span>zeta-users<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">  </span>--set<span class="w"> </span>auth.secureCookie<span class="o">=</span><span class="nb">true</span>
 </code></pre></div>
 <p>For a production session key, use a Kubernetes Secret instead of putting it in
-the command line. See <a href="../helm-chart/#authentication">Helm chart reference</a>.</p>
+the command line. Use <code>auth.oidc.allowedUsers</code> or <code>auth.oidc.allowedGroups</code> to
+restrict sign-in, and adjust the claim names if your provider does not use
+<code>preferred_username</code>, <code>email</code>, and <code>groups</code>. See
+<a href="../helm-chart/#authentication">Helm chart reference</a>.</p>
 <h2 id="private-registry">Private registry<a class="headerlink" href="#private-registry" title="Permanent link">&para;</a></h2>
 <p><code>helm registry login</code> authenticates Helm to pull the chart. Kubernetes also needs
 credentials to pull the images:</p>

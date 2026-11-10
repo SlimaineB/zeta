@@ -655,6 +655,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#transport-and-browser-protections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transport and browser protections
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#authorization" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1427,6 +1438,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#transport-and-browser-protections" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Transport and browser protections
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#authorization" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1555,25 +1577,56 @@ limitations.</p>
 <ul>
 <li><strong>Development mode</strong> (<code>--oidc-dev</code>): built-in users and passwords, intended
   for local use only.</li>
-<li><strong>OIDC</strong>: authorization code flow with the configured issuer, client ID,
-  secret, scopes, and callback URL.</li>
+<li><strong>OIDC</strong>: authorization code flow with PKCE, nonce verification, the configured
+  issuer, client ID, secret, scopes, and callback URL.</li>
 </ul>
-<p>Sessions are signed with an HMAC key (<code>--oidc-session-key</code>) and stored in the
-<code>zeta_session</code> cookie. If no key is provided, a random key is generated at
-startup; all sessions are invalidated on restart.</p>
+<p>The short-lived login state is stored in a signed <code>zeta_oidc</code> cookie, not in
+process memory, so login works with multiple portal replicas. Sessions are signed
+with an HMAC key (<code>--oidc-session-key</code>) and stored in the <code>zeta_session</code> cookie.
+If no key is provided, a random key is generated at startup; all sessions are
+invalidated on restart.</p>
+<p>OIDC claims are configurable with <code>--oidc-username-claim</code>,
+<code>--oidc-email-claim</code>, and <code>--oidc-groups-claim</code>. Groups and profile data are
+merged from the userinfo endpoint when missing from the ID token.
+<code>--oidc-allowed-groups</code> and <code>--oidc-allowed-users</code> optionally restrict who can
+sign in; when both are set, a user must match both allowlists.</p>
 <p>In production:</p>
 <ul>
 <li>set a fixed, random session key of at least 32 characters;</li>
 <li>set <code>--secure-cookie</code> behind HTTPS;</li>
 <li>keep the session TTL short enough for your policy (default <code>12h</code>);</li>
-<li>configure the OIDC provider to allow exactly the callback URL.</li>
+<li>configure the OIDC provider to allow exactly the callback URL;</li>
+<li>use an allowlist when the provider can authenticate users outside your team.</li>
+</ul>
+<h2 id="transport-and-browser-protections">Transport and browser protections<a class="headerlink" href="#transport-and-browser-protections" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Browser WebSocket endpoints (<code>/api/envs/{id}/exec</code> and
+  <code>/api/sync/{id}/client</code>) require an <code>Origin</code> header matching the portal host.</li>
+<li>The sync agent authenticates with <code>Authorization: Bearer &lt;token&gt;</code>. The older
+  <code>?token=</code> query parameter is still accepted for backward compatibility but is
+  no longer used by newly created environments or build Jobs.</li>
+<li>State-changing API requests reject cross-site <code>Sec-Fetch-Site</code>, <code>Origin</code>, or
+  <code>Referer</code> values. Non-browser clients that send none of these headers, such as
+  the CLI, are still accepted.</li>
+<li>The session cookie is signed but not encrypted. It contains identity and group
+  data, not credentials. Logout clears the local cookie; the portal does not
+  implement IdP-initiated or RP-initiated revocation yet.</li>
 </ul>
 <h2 id="authorization">Authorization<a class="headerlink" href="#authorization" title="Permanent link">&para;</a></h2>
 <p>The portal's ServiceAccount is namespace-scoped. It can create and inspect Jobs,
 Pods, Pod logs, Deployments, Secrets, and PVCs in <code>zeta-poc</code>.</p>
-<p>Current limitation: <strong>there is no per-group RBAC</strong>. Every authenticated user can
-launch and view builds and environments in the namespace. The <code>groups</code> claim is
-collected but not enforced.</p>
+<p>Environments and builds are owner-scoped. The portal records the authenticated
+user's email (or username when the provider omits email) as the owner when
+creating an environment or build. Lifecycle
+operations, exec, sync, logs, metrics, and artifact downloads require the owner
+or membership in the <code>admin</code> / <code>admins</code> group. Listing builds and environments
+remains available to every authenticated user. Resources created before owner
+tracking, or with an empty owner, remain accessible to any authenticated user for
+backward compatibility.</p>
+<p>There is still no full per-group RBAC, and volumes remain shared across the
+namespace. The <code>groups</code> claim is collected and can be used in
+<code>--oidc-allowed-groups</code>, but it is not used for arbitrary group-to-resource
+policy.</p>
 <h2 id="pod-security">Pod security<a class="headerlink" href="#pod-security" title="Permanent link">&para;</a></h2>
 <p>Build Jobs and environment pods use:</p>
 <ul>
@@ -1611,7 +1664,9 @@ scoped to the workspace and the configured exclusions.</p>
 <p>Use Kubernetes Secrets, not literals in profiles, for credentials.</p>
 <h2 id="limits-and-known-gaps">Limits and known gaps<a class="headerlink" href="#limits-and-known-gaps" title="Permanent link">&para;</a></h2>
 <ul>
-<li>No per-group RBAC or strong multi-tenant isolation.</li>
+<li>No full per-group RBAC or strong multi-tenant isolation; volumes remain shared.</li>
+<li>No IdP logout/revocation; sessions remain valid until expiry after local logout.</li>
+<li>The session cookie is signed but not encrypted.</li>
 <li>No private SSH repository support; use HTTPS tokens.</li>
 <li>Artifacts are stored per language path, not per build.</li>
 <li>No S3/MinIO backend; PVCs use <code>local-path</code> on the reference single-node cluster.</li>

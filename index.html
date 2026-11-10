@@ -1557,7 +1557,8 @@ after completion. Only the cache and artifacts PVCs remain.</p>
 <ul>
 <li>It is not a full CI/CD system with SCM webhooks, pipelines, approvals, and
   deployment stages.</li>
-<li>It does not provide per-group RBAC or strong multi-tenant isolation yet.</li>
+<li>It does not provide full per-group RBAC or strong multi-tenant isolation yet;
+  builds and environments are owner-scoped with an admin override.</li>
 <li>It does not build or push OCI images; it produces build artifacts on a PVC.</li>
 <li>It is not a remote cache or a distributed build system for very large
   monorepos.</li>

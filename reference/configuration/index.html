@@ -1643,6 +1643,18 @@ precedence.</p>
 <td>OIDC issuer</td>
 </tr>
 <tr>
+<td><code>--oidc-discovery-url</code></td>
+<td><code>ZETA_OIDC_DISCOVERY_URL</code></td>
+<td>issuer</td>
+<td>OIDC discovery URL</td>
+</tr>
+<tr>
+<td><code>--oidc-authorization-url</code></td>
+<td><code>ZETA_OIDC_AUTHORIZATION_URL</code></td>
+<td>discovery</td>
+<td>OIDC authorization endpoint override</td>
+</tr>
+<tr>
 <td><code>--oidc-client-id</code></td>
 <td><code>ZETA_OIDC_CLIENT_ID</code></td>
 <td><code>zeta-portal</code></td>
@@ -1665,6 +1677,36 @@ precedence.</p>
 <td><code>ZETA_OIDC_SCOPES</code></td>
 <td><code>openid,profile,email,groups</code></td>
 <td>OIDC scopes</td>
+</tr>
+<tr>
+<td><code>--oidc-allowed-groups</code></td>
+<td><code>ZETA_OIDC_ALLOWED_GROUPS</code></td>
+<td>empty</td>
+<td>Comma-separated allowed groups</td>
+</tr>
+<tr>
+<td><code>--oidc-allowed-users</code></td>
+<td><code>ZETA_OIDC_ALLOWED_USERS</code></td>
+<td>empty</td>
+<td>Comma-separated allowed usernames, emails, or subjects</td>
+</tr>
+<tr>
+<td><code>--oidc-username-claim</code></td>
+<td><code>ZETA_OIDC_USERNAME_CLAIM</code></td>
+<td><code>preferred_username</code></td>
+<td>Username claim</td>
+</tr>
+<tr>
+<td><code>--oidc-email-claim</code></td>
+<td><code>ZETA_OIDC_EMAIL_CLAIM</code></td>
+<td><code>email</code></td>
+<td>Email claim</td>
+</tr>
+<tr>
+<td><code>--oidc-groups-claim</code></td>
+<td><code>ZETA_OIDC_GROUPS_CLAIM</code></td>
+<td><code>groups</code></td>
+<td>Groups claim</td>
 </tr>
 <tr>
 <td><code>--oidc-session-key</code></td>
@@ -1705,17 +1747,37 @@ precedence.</p>
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-addr=:8080</span>
 <a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-namespace=zeta-poc</span>
 <a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-issuer=https://idp.example.com/realms/dev</span>
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-client-id=zeta-portal</span>
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-client-secret=&lt;secret&gt;</span>
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-redirect-url=https://zeta.example.com/oidc/callback</span>
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-session-key=&lt;32+ random characters&gt;</span>
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-session-ttl=12h</span>
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-secure-cookie</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-discovery-url=https://idp.example.com/realms/dev</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-client-id=zeta-portal</span>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-client-secret=&lt;secret&gt;</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-redirect-url=https://zeta.example.com/oidc/callback</span>
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-allowed-groups=zeta-users</span>
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-username-claim=preferred_username</span>
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-email-claim=email</span>
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-groups-claim=groups</span>
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-session-key=&lt;32+ random characters&gt;</span>
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-oidc-session-ttl=12h</span>
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">-secure-cookie</span>
 </code></pre></div>
 <p>The OIDC provider must allow exactly the callback URL. The portal uses the
-<code>email</code>, <code>preferred_username</code>, and <code>groups</code> claims. Per-group RBAC is not
-implemented yet: every authenticated user can launch and view builds in the
-namespace.</p>
+configured <code>--oidc-username-claim</code>, <code>--oidc-email-claim</code>, and
+<code>--oidc-groups-claim</code>; defaults are <code>preferred_username</code>, <code>email</code>, and <code>groups</code>.
+Groups and profile data are also read from the userinfo endpoint when the ID
+token does not contain them.</p>
+<p><code>--oidc-allowed-groups</code> and <code>--oidc-allowed-users</code> are optional allowlists. When
+set, the user must match at least one allowed group and at least one allowed
+user entry. A user entry can be a username, email, or subject.</p>
+<p>Use <code>--oidc-discovery-url</code> when the portal must reach discovery through an
+internal address while the browser uses a public issuer. Use
+<code>--oidc-authorization-url</code> when the discovery document advertises an internal
+authorization endpoint that the browser cannot reach.</p>
+<p>The login flow uses PKCE, verifies the ID token nonce, and stores its short-lived
+state in a signed <code>zeta_oidc</code> cookie, so it works across multiple portal
+replicas. Sessions are stored in the signed <code>zeta_session</code> cookie. Environments
+and builds are owner-scoped: lifecycle, exec, sync, logs, metrics, and artifact
+downloads require the owner or an <code>admin</code> / <code>admins</code> group member. Listing
+builds and environments remains available to every authenticated user. Full
+per-group RBAC is still not implemented.</p>
 <h2 id="development-authentication">Development authentication<a class="headerlink" href="#development-authentication" title="Permanent link">&para;</a></h2>
 <p>With <code>--oidc-dev</code>, the portal accepts the built-in users:</p>
 <table>
