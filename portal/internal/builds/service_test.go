@@ -72,6 +72,7 @@ func (f *fakeRepo) Create(context.Context, domain.BuildSpec) (string, error) {
 func (f *fakeRepo) StoreContext(context.Context, io.Reader) (string, error) { return "", nil }
 func (f *fakeRepo) DeleteContext(context.Context, string) error             { return nil }
 func (f *fakeRepo) List(context.Context) ([]domain.Build, error)            { return f.builds, nil }
+func (f *fakeRepo) BuildOwner(context.Context, string) (string, error)      { return "", nil }
 func (f *fakeRepo) StreamLogs(context.Context, string, io.Writer) error     { return nil }
 func (f *fakeRepo) ReadLogs(context.Context, string, int64) (string, error) { return "", nil }
 func (f *fakeRepo) StreamArtifact(context.Context, string, io.Writer) error { return nil }
@@ -87,6 +88,7 @@ func (f *fakeRepo) EnsureEnvironment(context.Context, domain.EnvSpec) (domain.En
 func (f *fakeRepo) ListEnvironments(context.Context) ([]domain.Environment, error) { return nil, nil }
 func (f *fakeRepo) SetEnvironmentActive(context.Context, string, bool) error       { return nil }
 func (f *fakeRepo) DeleteEnvironment(context.Context, string) error                { return nil }
+func (f *fakeRepo) EnvironmentOwner(context.Context, string) (string, error)       { return "", nil }
 func (f *fakeRepo) EnvironmentToken(context.Context, string) (string, error)       { return "", nil }
 func (f *fakeRepo) ExecEnvironment(context.Context, string, domain.ExecOptions) error {
 	return nil

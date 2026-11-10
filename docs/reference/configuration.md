@@ -19,10 +19,17 @@ precedence.
 | `--volume-max` | `ZETA_VOLUME_MAX` | `10Gi` | Maximum size of one managed volume |
 | `--env-idle-timeout` | `ZETA_ENV_IDLE_TIMEOUT` | `15m` | Scale idle environments to zero (`0` disables) |
 | `--oidc-issuer` | `ZETA_OIDC_ISSUER` | empty | OIDC issuer |
+| `--oidc-discovery-url` | `ZETA_OIDC_DISCOVERY_URL` | issuer | OIDC discovery URL |
+| `--oidc-authorization-url` | `ZETA_OIDC_AUTHORIZATION_URL` | discovery | OIDC authorization endpoint override |
 | `--oidc-client-id` | `ZETA_OIDC_CLIENT_ID` | `zeta-portal` | OIDC client ID |
 | `--oidc-client-secret` | `ZETA_OIDC_CLIENT_SECRET` | empty | OIDC client secret |
 | `--oidc-redirect-url` | `ZETA_OIDC_REDIRECT_URL` | auto | OIDC callback URL |
 | `--oidc-scopes` | `ZETA_OIDC_SCOPES` | `openid,profile,email,groups` | OIDC scopes |
+| `--oidc-allowed-groups` | `ZETA_OIDC_ALLOWED_GROUPS` | empty | Comma-separated allowed groups |
+| `--oidc-allowed-users` | `ZETA_OIDC_ALLOWED_USERS` | empty | Comma-separated allowed usernames, emails, or subjects |
+| `--oidc-username-claim` | `ZETA_OIDC_USERNAME_CLAIM` | `preferred_username` | Username claim |
+| `--oidc-email-claim` | `ZETA_OIDC_EMAIL_CLAIM` | `email` | Email claim |
+| `--oidc-groups-claim` | `ZETA_OIDC_GROUPS_CLAIM` | `groups` | Groups claim |
 | `--oidc-session-key` | `ZETA_OIDC_SESSION_KEY` | random | Session HMAC key |
 | `--oidc-session-ttl` | `ZETA_OIDC_SESSION_TTL` | `12h` | Session lifetime |
 | `--oidc-dev` | `ZETA_OIDC_DEV` | `false` | Local development auth |
@@ -44,18 +51,41 @@ args:
   - -addr=:8080
   - -namespace=zeta-poc
   - -oidc-issuer=https://idp.example.com/realms/dev
+  - -oidc-discovery-url=https://idp.example.com/realms/dev
   - -oidc-client-id=zeta-portal
   - -oidc-client-secret=<secret>
   - -oidc-redirect-url=https://zeta.example.com/oidc/callback
+  - -oidc-allowed-groups=zeta-users
+  - -oidc-username-claim=preferred_username
+  - -oidc-email-claim=email
+  - -oidc-groups-claim=groups
   - -oidc-session-key=<32+ random characters>
   - -oidc-session-ttl=12h
   - -secure-cookie
 ```
 
 The OIDC provider must allow exactly the callback URL. The portal uses the
-`email`, `preferred_username`, and `groups` claims. Per-group RBAC is not
-implemented yet: every authenticated user can launch and view builds in the
-namespace.
+configured `--oidc-username-claim`, `--oidc-email-claim`, and
+`--oidc-groups-claim`; defaults are `preferred_username`, `email`, and `groups`.
+Groups and profile data are also read from the userinfo endpoint when the ID
+token does not contain them.
+
+`--oidc-allowed-groups` and `--oidc-allowed-users` are optional allowlists. When
+set, the user must match at least one allowed group and at least one allowed
+user entry. A user entry can be a username, email, or subject.
+
+Use `--oidc-discovery-url` when the portal must reach discovery through an
+internal address while the browser uses a public issuer. Use
+`--oidc-authorization-url` when the discovery document advertises an internal
+authorization endpoint that the browser cannot reach.
+
+The login flow uses PKCE, verifies the ID token nonce, and stores its short-lived
+state in a signed `zeta_oidc` cookie, so it works across multiple portal
+replicas. Sessions are stored in the signed `zeta_session` cookie. Environments
+and builds are owner-scoped: lifecycle, exec, sync, logs, metrics, and artifact
+downloads require the owner or an `admin` / `admins` group member. Listing
+builds and environments remains available to every authenticated user. Full
+per-group RBAC is still not implemented.
 
 ## Development authentication
 

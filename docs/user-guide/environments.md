@@ -155,8 +155,10 @@ Retry after the volume finalizer completes.
 
 ## Limitations
 
-- Environments share the `zeta-poc` namespace and the portal RBAC. There is no
-  per-group isolation yet.
+- Environments share the `zeta-poc` namespace and the portal RBAC. Environments
+  are owner-scoped for lifecycle, exec, and sync operations; `admin` / `admins`
+  group members can manage any environment. There is no full per-group
+  isolation yet.
 - Sync is last-writer-wins; simultaneous edits on both sides can conflict.
 - `local-path` volumes are node-local. Use an EBS-backed StorageClass in
   production.

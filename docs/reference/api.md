@@ -1,7 +1,7 @@
 # HTTP API
 
 All `/api/*` routes require a session cookie named `zeta_session`, except the
-sync agent endpoint which uses a per-environment token.
+sync agent endpoint which uses a per-environment or per-build bearer token.
 
 Base URL: `http://zeta.local` (or your ingress/port-forward address).
 
@@ -29,7 +29,7 @@ The response sets the `zeta_session` cookie.
 | Route | Purpose |
 |---|---|
 | `GET /login` | Login page / redirect |
-| `GET /oidc/login` | Start the OIDC flow |
+| `GET /oidc/login?next=/path` | Start the OIDC flow and return to `/path` |
 | `GET /oidc/callback` | OIDC callback |
 
 ### Session
@@ -41,9 +41,10 @@ The response sets the `zeta_session` cookie.
 
 ### Sync agent token
 
-`GET /api/sync/{id}/agent` uses `?token=<token>` instead of the cookie. The token
-is stored in the Secret `zeta-env-<id>-sync` (environments) or in the build Job
-(build sync).
+`GET /api/sync/{id}/agent` uses `Authorization: Bearer <token>` instead of the
+cookie. The token is stored in the Secret `zeta-env-<id>-sync` (environments) or
+in the build Job (build sync). `?token=<token>` is still accepted for
+backward compatibility, but new environments and build Jobs use the header.
 
 ## Errors
 
@@ -57,6 +58,7 @@ Errors use a JSON body:
 |---|---|
 | `400` | Invalid input, profile, repo, or reference |
 | `401` | Missing or expired session |
+| `403` | Cross-origin request or resource owned by another user |
 | `404` | Build, environment, or volume not found |
 | `409` | Volume in use or conflicting state |
 | `413` | Context too large |
@@ -89,6 +91,11 @@ Errors use a JSON body:
 | `DELETE` | `/api/envs/{id}` | Delete an environment and its volume |
 | `GET` | `/api/envs/{id}/exec` | Interactive exec WebSocket |
 | `GET` | `/healthz` | Health check |
+
+Build logs, metrics, and artifacts require the build owner or an `admin` /
+`admins` group member. Environment lifecycle, exec, and sync endpoints require
+the environment owner or an admin. Listing builds and environments remains
+available to all authenticated users.
 
 ## Builds
 
@@ -308,8 +315,8 @@ The exec runs in the `env` container, in `/workspace`, with a TTY.
 
 | Route | Auth | Direction |
 |---|---|---|
-| `GET /api/sync/{id}/client` | Session cookie | CLI |
-| `GET /api/sync/{id}/agent` | `?token=` | Pod sidecar |
+| `GET /api/sync/{id}/client` | Session cookie + same-origin `Origin` | CLI |
+| `GET /api/sync/{id}/agent` | `Authorization: Bearer` | Pod sidecar |
 
 The portal relays messages between the CLI and `syncd`. The build sync client
 waits for `/workspace/.zeta-ready` before the build starts.

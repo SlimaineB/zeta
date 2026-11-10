@@ -124,6 +124,7 @@ type BuildSpec struct {
 type Environment struct {
 	ID           string    `json:"id"`
 	Profile      string    `json:"profile"`
+	Owner        string    `json:"owner,omitempty"`
 	Active       bool      `json:"active"`
 	SizeBytes    int64     `json:"sizeBytes"`
 	StorageClass string    `json:"storageClass"`
@@ -133,6 +134,7 @@ type Environment struct {
 type EnvSpec struct {
 	ID      string
 	Profile Profile
+	Owner   string
 	Image   string
 	Env     map[string]string
 	Size    string
@@ -171,6 +173,7 @@ type BuildRepository interface {
 	StoreContext(ctx context.Context, r io.Reader) (string, error)
 	DeleteContext(ctx context.Context, path string) error
 	List(ctx context.Context) ([]Build, error)
+	BuildOwner(ctx context.Context, id string) (string, error)
 	StreamLogs(ctx context.Context, id string, w io.Writer) error
 	ReadLogs(ctx context.Context, id string, tailLines int64) (string, error)
 	StreamArtifact(ctx context.Context, id string, w io.Writer) error
@@ -182,6 +185,7 @@ type BuildRepository interface {
 	ListEnvironments(ctx context.Context) ([]Environment, error)
 	SetEnvironmentActive(ctx context.Context, id string, active bool) error
 	DeleteEnvironment(ctx context.Context, id string) error
+	EnvironmentOwner(ctx context.Context, id string) (string, error)
 	EnvironmentToken(ctx context.Context, id string) (string, error)
 	ExecEnvironment(ctx context.Context, id string, opts ExecOptions) error
 }

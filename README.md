@@ -159,7 +159,8 @@ What Zeta is not:
 
 - It is not a full CI/CD system with SCM webhooks, pipelines, approvals, and
   deployment stages.
-- It does not provide per-group RBAC or multi-tenant isolation yet.
+- It does not provide full per-group RBAC or multi-tenant isolation yet;
+  builds and environments are owner-scoped with an admin override.
 - It does not build or push OCI images; it produces build artifacts on a PVC.
 - It does not replace a remote cache or distributed build system for very large
   monorepos.
@@ -1114,10 +1115,17 @@ one-off exclusion; the flag can be repeated.
 | `--volume-max` | `ZETA_VOLUME_MAX` | `10Gi` | Maximum size of one managed volume |
 | `--env-idle-timeout` | `ZETA_ENV_IDLE_TIMEOUT` | `15m` | Scale idle environments to zero (`0` disables) |
 | `--oidc-issuer` | `ZETA_OIDC_ISSUER` | empty | OIDC issuer |
+| `--oidc-discovery-url` | `ZETA_OIDC_DISCOVERY_URL` | issuer | OIDC discovery URL |
+| `--oidc-authorization-url` | `ZETA_OIDC_AUTHORIZATION_URL` | discovery | OIDC authorization endpoint override |
 | `--oidc-client-id` | `ZETA_OIDC_CLIENT_ID` | `zeta-portal` | OIDC client ID |
 | `--oidc-client-secret` | `ZETA_OIDC_CLIENT_SECRET` | empty | OIDC client secret |
 | `--oidc-redirect-url` | `ZETA_OIDC_REDIRECT_URL` | auto | OIDC callback URL |
 | `--oidc-scopes` | `ZETA_OIDC_SCOPES` | `openid,profile,email,groups` | OIDC scopes |
+| `--oidc-allowed-groups` | `ZETA_OIDC_ALLOWED_GROUPS` | empty | Comma-separated allowed groups |
+| `--oidc-allowed-users` | `ZETA_OIDC_ALLOWED_USERS` | empty | Comma-separated allowed usernames, emails, or subjects |
+| `--oidc-username-claim` | `ZETA_OIDC_USERNAME_CLAIM` | `preferred_username` | Username claim |
+| `--oidc-email-claim` | `ZETA_OIDC_EMAIL_CLAIM` | `email` | Email claim |
+| `--oidc-groups-claim` | `ZETA_OIDC_GROUPS_CLAIM` | `groups` | Groups claim |
 | `--oidc-session-key` | `ZETA_OIDC_SESSION_KEY` | random | Session HMAC key |
 | `--oidc-session-ttl` | `ZETA_OIDC_SESSION_TTL` | `12h` | Session lifetime |
 | `--oidc-dev` | `ZETA_OIDC_DEV` | `false` | Local development auth |
@@ -1139,18 +1147,41 @@ args:
   - -addr=:8080
   - -namespace=zeta-poc
   - -oidc-issuer=https://idp.example.com/realms/dev
+  - -oidc-discovery-url=https://idp.example.com/realms/dev
   - -oidc-client-id=zeta-portal
   - -oidc-client-secret=<secret>
   - -oidc-redirect-url=https://zeta.example.com/oidc/callback
+  - -oidc-allowed-groups=zeta-users
+  - -oidc-username-claim=preferred_username
+  - -oidc-email-claim=email
+  - -oidc-groups-claim=groups
   - -oidc-session-key=<32+ random characters>
   - -oidc-session-ttl=12h
   - -secure-cookie
 ```
 
 The OIDC provider must allow exactly the callback URL. The portal uses the
-`email`, `preferred_username`, and `groups` claims. Per-group RBAC is not
-implemented yet: every authenticated user can launch and view builds in the
-namespace.
+configured `--oidc-username-claim`, `--oidc-email-claim`, and
+`--oidc-groups-claim`; defaults are `preferred_username`, `email`, and `groups`.
+Groups and profile data are also read from the userinfo endpoint when the ID
+token does not contain them.
+
+`--oidc-allowed-groups` and `--oidc-allowed-users` are optional allowlists. When
+set, the user must match at least one allowed group and at least one allowed
+user entry. A user entry can be a username, email, or subject.
+
+Use `--oidc-discovery-url` when the portal must reach discovery through an
+internal address while the browser uses a public issuer. Use
+`--oidc-authorization-url` when the discovery document advertises an internal
+authorization endpoint that the browser cannot reach.
+
+The login flow uses PKCE, verifies the ID token nonce, and stores its short-lived
+state in a signed `zeta_oidc` cookie, so it works across multiple portal
+replicas. Sessions are stored in the signed `zeta_session` cookie. Environments
+and builds are owner-scoped: lifecycle, exec, sync, logs, metrics, and artifact
+downloads require the owner or an `admin` / `admins` group member. Listing
+builds and environments remains available to every authenticated user. Full
+per-group RBAC is still not implemented.
 
 ### 9.3 Kubernetes resources
 
@@ -1170,7 +1201,7 @@ manifests remain for local development.
 ## 10. HTTP API
 
 All `/api/*` routes require a session cookie named `zeta_session`, except
-the sync agent endpoint which uses a per-build token.
+the sync agent endpoint which uses a per-build or per-environment bearer token.
 
 | Method | Route | Role |
 |---|---|---|
@@ -1183,7 +1214,7 @@ the sync agent endpoint which uses a per-build token.
 | `GET` | `/api/builds` | List builds |
 | `POST` | `/api/builds` | Submit a Git build (JSON) or local-context build (multipart) |
 | `GET` | `/api/sync/{id}/client` | CLI-side sync WebSocket |
-| `GET` | `/api/sync/{id}/agent` | Sidecar sync WebSocket (token) |
+| `GET` | `/api/sync/{id}/agent` | Sidecar sync WebSocket (bearer token) |
 | `GET` | `/api/builds/{id}/logs` | Streaming logs |
 | `GET` | `/api/builds/{id}/metrics` | Cache metrics |
 | `GET` | `/api/builds/{id}/artifact` | Artifacts as `.tar` |
@@ -1191,6 +1222,11 @@ the sync agent endpoint which uses a per-build token.
 | `POST` | `/api/volumes/{name}/resize` | Expand a managed volume (`{"size":"5Gi"}`) |
 | `DELETE` | `/api/volumes/{name}` | Delete an idle managed volume |
 | `GET` | `/healthz` | Health check |
+
+Build logs, metrics, and artifacts require the build owner or an `admin` /
+`admins` group member. Environment lifecycle, exec, and sync endpoints require
+the environment owner or an admin. Listing builds and environments remains
+available to all authenticated users.
 
 ### 10.1 curl examples
 
@@ -1485,8 +1521,11 @@ Security model:
 
 Current limitations:
 
-- No per-group RBAC: every authenticated user can see and launch builds in the
-  namespace.
+- No full per-group RBAC or multi-tenant isolation. Builds and environments are
+  owner-scoped for lifecycle, exec, sync, logs, metrics, and artifacts; listing
+  remains shared. Volumes remain shared.
+- No IdP logout/revocation; the signed session cookie remains valid until expiry
+  after local logout.
 - OIDC browser login is not integrated into the CLI yet.
 - No private SSH repository support; use HTTPS tokens.
 - Artifacts are stored per language path, not per build. A newer build of the

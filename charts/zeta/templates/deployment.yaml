@@ -44,11 +44,26 @@ spec:
             - -oidc-dev
             {{- else }}
             - -oidc-issuer={{ required "auth.oidc.issuer is required when auth.dev is false" .Values.auth.oidc.issuer }}
+            {{- if .Values.auth.oidc.discoveryURL }}
+            - -oidc-discovery-url={{ .Values.auth.oidc.discoveryURL }}
+            {{- end }}
+            {{- if .Values.auth.oidc.authorizationURL }}
+            - -oidc-authorization-url={{ .Values.auth.oidc.authorizationURL }}
+            {{- end }}
             - -oidc-client-id={{ .Values.auth.oidc.clientID }}
             {{- if .Values.auth.oidc.redirectURL }}
             - -oidc-redirect-url={{ .Values.auth.oidc.redirectURL }}
             {{- end }}
             - -oidc-scopes={{ .Values.auth.oidc.scopes }}
+            {{- if .Values.auth.oidc.allowedGroups }}
+            - -oidc-allowed-groups={{ .Values.auth.oidc.allowedGroups }}
+            {{- end }}
+            {{- if .Values.auth.oidc.allowedUsers }}
+            - -oidc-allowed-users={{ .Values.auth.oidc.allowedUsers }}
+            {{- end }}
+            - -oidc-username-claim={{ .Values.auth.oidc.usernameClaim }}
+            - -oidc-email-claim={{ .Values.auth.oidc.emailClaim }}
+            - -oidc-groups-claim={{ .Values.auth.oidc.groupsClaim }}
             {{- end }}
             - -oidc-session-ttl={{ .Values.auth.sessionTTL }}
             {{- if .Values.auth.secureCookie }}

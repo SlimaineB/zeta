@@ -12,6 +12,7 @@ import (
 
 type AgentOptions struct {
 	URL       string
+	Token     string
 	Workspace string
 	Artifacts string
 	Ignore    []string
@@ -19,7 +20,7 @@ type AgentOptions struct {
 }
 
 func RunAgent(ctx context.Context, opts AgentOptions) error {
-	conn, err := Dial(ctx, opts.URL, "")
+	conn, err := DialAuth(ctx, opts.URL, "", opts.Token)
 	if err != nil {
 		return err
 	}

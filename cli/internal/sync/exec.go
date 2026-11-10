@@ -21,18 +21,7 @@ func (c *WSConn) ReceiveBytes(data *[]byte) error {
 }
 
 func DialExec(ctx context.Context, rawURL, cookie string) (*WSConn, error) {
-	cfg, err := websocket.NewConfig(rawURL, "http://zeta.local")
-	if err != nil {
-		return nil, err
-	}
-	if header := cookieHeader(cookie); header != "" {
-		cfg.Header.Set("Cookie", header)
-	}
-	ws, err := cfg.DialContext(ctx)
-	if err != nil {
-		return nil, err
-	}
-	return &WSConn{ws: ws}, nil
+	return DialAuth(ctx, rawURL, cookie, "")
 }
 
 type resizeMessage struct {

@@ -2,6 +2,7 @@ package sync
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"fmt"
 	"sync"
 	"time"
@@ -113,7 +114,7 @@ func (h *Hub) Forget(id string) {
 func NewToken() string {
 	buf := make([]byte, 16)
 	if _, err := rand.Read(buf); err != nil {
-		return "dev-token"
+		panic(fmt.Sprintf("generating sync token: %v", err))
 	}
 	return fmt.Sprintf("%x", buf)
 }
@@ -165,7 +166,7 @@ func (h *Hub) AttachAgent(id, token string, conn *websocket.Conn) error {
 		h.mu.Unlock()
 		return fmt.Errorf("session inconnue")
 	}
-	if s.token != token {
+	if subtle.ConstantTimeCompare([]byte(s.token), []byte(token)) != 1 {
 		h.mu.Unlock()
 		return fmt.Errorf("token de session invalide")
 	}

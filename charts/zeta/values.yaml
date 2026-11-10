@@ -61,10 +61,17 @@ auth:
   existingSecret: ""
   oidc:
     issuer: ""
+    discoveryURL: ""
+    authorizationURL: ""
     clientID: zeta-portal
     clientSecret: ""
     redirectURL: ""
     scopes: "openid,profile,email,groups"
+    allowedGroups: ""
+    allowedUsers: ""
+    usernameClaim: preferred_username
+    emailClaim: email
+    groupsClaim: groups
 
 persistence:
   artifacts:

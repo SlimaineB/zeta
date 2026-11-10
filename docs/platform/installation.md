@@ -48,11 +48,15 @@ helm upgrade --install zeta oci://ghcr.io/slimaineb/charts/zeta \
   --set auth.oidc.clientID=zeta-portal \
   --set auth.oidc.clientSecret='<secret>' \
   --set auth.oidc.redirectURL=https://zeta.example.com/oidc/callback \
+  --set auth.oidc.allowedGroups=zeta-users \
   --set auth.secureCookie=true
 ```
 
 For a production session key, use a Kubernetes Secret instead of putting it in
-the command line. See [Helm chart reference](helm-chart.md#authentication).
+the command line. Use `auth.oidc.allowedUsers` or `auth.oidc.allowedGroups` to
+restrict sign-in, and adjust the claim names if your provider does not use
+`preferred_username`, `email`, and `groups`. See
+[Helm chart reference](helm-chart.md#authentication).
 
 ## Private registry
 

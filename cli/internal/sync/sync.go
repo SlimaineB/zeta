@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -47,18 +48,41 @@ type WSConn struct {
 }
 
 func Dial(ctx context.Context, rawURL, cookie string) (*WSConn, error) {
-	cfg, err := websocket.NewConfig(rawURL, "http://zeta.local")
+	return DialAuth(ctx, rawURL, cookie, "")
+}
+
+func DialAuth(ctx context.Context, rawURL, cookie, token string) (*WSConn, error) {
+	origin, err := websocketOrigin(rawURL)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := websocket.NewConfig(rawURL, origin)
 	if err != nil {
 		return nil, err
 	}
 	if header := cookieHeader(cookie); header != "" {
 		cfg.Header.Set("Cookie", header)
 	}
+	if token = strings.TrimSpace(token); token != "" {
+		cfg.Header.Set("Authorization", "Bearer "+token)
+	}
 	ws, err := cfg.DialContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	return &WSConn{ws: ws}, nil
+}
+
+func websocketOrigin(rawURL string) (string, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		return "", fmt.Errorf("invalid WebSocket URL: %s", rawURL)
+	}
+	scheme := "http"
+	if u.Scheme == "wss" {
+		scheme = "https"
+	}
+	return scheme + "://" + u.Host, nil
 }
 
 func (c *WSConn) Send(msg Message) error {

@@ -8,7 +8,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -39,41 +41,163 @@ func New(cfg config.Config, buildService *builds.Service, authService *auth.Serv
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
+	protected := func(h http.HandlerFunc) http.Handler {
+		return s.auth.RequireAuth(s.sameOriginGuard(h))
+	}
+
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok\n"))
 	})
 	mux.HandleFunc("GET /login", s.login)
-	mux.HandleFunc("POST /api/login", s.auth.DevLogin)
-	mux.HandleFunc("POST /api/logout", s.auth.Logout)
+	mux.Handle("POST /api/login", s.sameOriginGuard(http.HandlerFunc(s.auth.DevLogin)))
+	mux.Handle("POST /api/logout", s.sameOriginGuard(http.HandlerFunc(s.auth.Logout)))
 	mux.HandleFunc("GET /oidc/login", s.auth.StartOIDC)
 	mux.HandleFunc("GET /oidc/callback", s.auth.OIDCCallback)
 
-	mux.Handle("GET /api/me", s.auth.RequireAuth(http.HandlerFunc(s.auth.Me)))
-	mux.Handle("GET /api/profiles", s.auth.RequireAuth(http.HandlerFunc(s.profiles)))
-	mux.Handle("GET /api/builds", s.auth.RequireAuth(http.HandlerFunc(s.listBuilds)))
-	mux.Handle("POST /api/builds", s.auth.RequireAuth(http.HandlerFunc(s.submitBuild)))
-	mux.Handle("GET /api/builds/{id}/logs", s.auth.RequireAuth(http.HandlerFunc(s.logs)))
-	mux.Handle("GET /api/builds/{id}/metrics", s.auth.RequireAuth(http.HandlerFunc(s.metrics)))
-	mux.Handle("GET /api/builds/{id}/artifact", s.auth.RequireAuth(http.HandlerFunc(s.artifact)))
-	mux.Handle("GET /api/volumes", s.auth.RequireAuth(http.HandlerFunc(s.volumes)))
-	mux.Handle("POST /api/volumes/{name}/resize", s.auth.RequireAuth(http.HandlerFunc(s.resizeVolume)))
-	mux.Handle("DELETE /api/volumes/{name}", s.auth.RequireAuth(http.HandlerFunc(s.deleteVolume)))
-	mux.Handle("POST /api/envs", s.auth.RequireAuth(http.HandlerFunc(s.createEnv)))
-	mux.Handle("GET /api/envs", s.auth.RequireAuth(http.HandlerFunc(s.listEnvs)))
-	mux.Handle("POST /api/envs/{id}/activate", s.auth.RequireAuth(http.HandlerFunc(s.activateEnv)))
-	mux.Handle("POST /api/envs/{id}/deactivate", s.auth.RequireAuth(http.HandlerFunc(s.deactivateEnv)))
-	mux.Handle("DELETE /api/envs/{id}", s.auth.RequireAuth(http.HandlerFunc(s.deleteEnv)))
-	mux.Handle("GET /api/envs/{id}/exec", s.auth.RequireAuth(http.HandlerFunc(s.envExec)))
+	mux.Handle("GET /api/me", protected(s.auth.Me))
+	mux.Handle("GET /api/profiles", protected(s.profiles))
+	mux.Handle("GET /api/builds", protected(s.listBuilds))
+	mux.Handle("POST /api/builds", protected(s.submitBuild))
+	mux.Handle("GET /api/builds/{id}/logs", protected(s.logs))
+	mux.Handle("GET /api/builds/{id}/metrics", protected(s.metrics))
+	mux.Handle("GET /api/builds/{id}/artifact", protected(s.artifact))
+	mux.Handle("GET /api/volumes", protected(s.volumes))
+	mux.Handle("POST /api/volumes/{name}/resize", protected(s.resizeVolume))
+	mux.Handle("DELETE /api/volumes/{name}", protected(s.deleteVolume))
+	mux.Handle("POST /api/envs", protected(s.createEnv))
+	mux.Handle("GET /api/envs", protected(s.listEnvs))
+	mux.Handle("POST /api/envs/{id}/activate", protected(s.activateEnv))
+	mux.Handle("POST /api/envs/{id}/deactivate", protected(s.deactivateEnv))
+	mux.Handle("DELETE /api/envs/{id}", protected(s.deleteEnv))
+	mux.Handle("GET /api/envs/{id}/exec", protected(s.envExec))
 	mux.HandleFunc("GET /api/sync/{id}/agent", s.syncAgent)
-	mux.Handle("GET /api/sync/{id}/client", s.auth.RequireAuth(http.HandlerFunc(s.syncClient)))
+	mux.Handle("GET /api/sync/{id}/client", protected(s.syncClient))
 
 	mux.HandleFunc("GET /", s.static)
 	return mux
 }
 
+func (s *Server) sameOriginGuard(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			next.ServeHTTP(w, r)
+			return
+		}
+		if err := safeRequestOrigin(r); err != nil {
+			writeError(w, http.StatusForbidden, err)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func requestHost(r *http.Request) string {
+	host := r.Host
+	if forwarded := r.Header.Get("X-Forwarded-Host"); forwarded != "" {
+		host = strings.TrimSpace(strings.Split(forwarded, ",")[0])
+	}
+	return host
+}
+
+func hostName(host string) string {
+	host = strings.TrimSpace(host)
+	if h, _, err := net.SplitHostPort(host); err == nil {
+		return strings.Trim(h, "[]")
+	}
+	return strings.Trim(host, "[]")
+}
+
+func originMatchesHost(origin, host string) error {
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+		return fmt.Errorf("invalid origin")
+	}
+	if !strings.EqualFold(hostName(u.Host), hostName(host)) {
+		return fmt.Errorf("origin %q does not match host %q", origin, host)
+	}
+	return nil
+}
+
+func sameOriginHeader(r *http.Request) error {
+	origin := strings.TrimSpace(r.Header.Get("Origin"))
+	if origin == "" {
+		return fmt.Errorf("missing origin")
+	}
+	return originMatchesHost(origin, requestHost(r))
+}
+
+func safeRequestOrigin(r *http.Request) error {
+	if site := strings.ToLower(strings.TrimSpace(r.Header.Get("Sec-Fetch-Site"))); site != "" && site != "same-origin" && site != "none" {
+		return fmt.Errorf("cross-site request rejected")
+	}
+	if origin := strings.TrimSpace(r.Header.Get("Origin")); origin != "" {
+		return originMatchesHost(origin, requestHost(r))
+	}
+	if referer := strings.TrimSpace(r.Header.Get("Referer")); referer != "" {
+		u, err := url.Parse(referer)
+		if err != nil || u.Host == "" {
+			return fmt.Errorf("invalid referer")
+		}
+		if !strings.EqualFold(hostName(u.Host), hostName(requestHost(r))) {
+			return fmt.Errorf("cross-origin referer rejected")
+		}
+	}
+	return nil
+}
+
+func serveWebSocket(w http.ResponseWriter, r *http.Request, h func(*websocket.Conn), checkOrigin bool) {
+	server := websocket.Server{Handler: h}
+	if checkOrigin {
+		server.Handshake = func(_ *websocket.Config, req *http.Request) error {
+			return sameOriginHeader(req)
+		}
+	}
+	server.ServeHTTP(w, r)
+}
+
+func bearerToken(r *http.Request) string {
+	const prefix = "Bearer "
+	value := strings.TrimSpace(r.Header.Get("Authorization"))
+	if len(value) > len(prefix) && strings.EqualFold(value[:len(prefix)], prefix) {
+		return strings.TrimSpace(value[len(prefix):])
+	}
+	return ""
+}
+
+func sessionOwner(session auth.Session) string {
+	if email := strings.TrimSpace(session.Email); email != "" {
+		return email
+	}
+	return strings.TrimSpace(session.Username)
+}
+
+func canManageEnv(session auth.Session, owner string) bool {
+	owner = strings.TrimSpace(owner)
+	if owner == "" || isAdmin(session) {
+		return true
+	}
+	return strings.EqualFold(owner, strings.TrimSpace(session.Email)) ||
+		strings.EqualFold(owner, strings.TrimSpace(session.Username))
+}
+
+func isAdmin(session auth.Session) bool {
+	for _, group := range session.Groups {
+		switch strings.ToLower(strings.TrimSpace(group)) {
+		case "admin", "admins":
+			return true
+		}
+	}
+	return false
+}
+
 func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	if s.auth.IsOIDC() {
-		http.Redirect(w, r, "/oidc/login", http.StatusFound)
+		target := "/oidc/login"
+		if next := r.URL.Query().Get("next"); next != "" {
+			target += "?next=" + url.QueryEscape(next)
+		}
+		http.Redirect(w, r, target, http.StatusFound)
 		return
 	}
 	s.serveFile(w, r, "web/login.html")
@@ -103,7 +227,7 @@ func (s *Server) submitBuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	session, _ := auth.SessionFromContext(r.Context())
-	id, err := s.builds.Submit(r.Context(), req, session.Email)
+	id, err := s.builds.Submit(r.Context(), req, sessionOwner(session))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -192,7 +316,7 @@ func (s *Server) submitContextBuild(w http.ResponseWriter, r *http.Request) {
 	if req.Sync {
 		syncToken = synchub.NewToken()
 	}
-	id, err := s.builds.SubmitContext(r.Context(), req, session.Email, contextPath, syncToken)
+	id, err := s.builds.SubmitContext(r.Context(), req, sessionOwner(session), contextPath, syncToken)
 	if err != nil {
 		cleanup()
 		writeError(w, http.StatusBadRequest, err)
@@ -210,7 +334,8 @@ func (s *Server) createEnv(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid JSON"))
 		return
 	}
-	env, err := s.builds.CreateEnvironment(r.Context(), req, synchub.NewToken())
+	session, _ := auth.SessionFromContext(r.Context())
+	env, err := s.builds.CreateEnvironment(r.Context(), req, sessionOwner(session), synchub.NewToken())
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err)
 		return
@@ -227,8 +352,51 @@ func (s *Server) listEnvs(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, envs)
 }
 
+func authorizeOwner(w http.ResponseWriter, session auth.Session, kind, id, owner string) bool {
+	if !canManageEnv(session, owner) {
+		writeError(w, http.StatusForbidden, fmt.Errorf("%s %s belongs to %s", kind, id, owner))
+		return false
+	}
+	return true
+}
+
+func (s *Server) authorizeEnv(w http.ResponseWriter, r *http.Request, id string) bool {
+	session, _ := auth.SessionFromContext(r.Context())
+	owner, err := s.builds.EnvironmentOwner(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
+		return false
+	}
+	return authorizeOwner(w, session, "environment", id, owner)
+}
+
+func (s *Server) authorizeBuild(w http.ResponseWriter, r *http.Request, id string) bool {
+	session, _ := auth.SessionFromContext(r.Context())
+	owner, err := s.builds.BuildOwner(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, err)
+		return false
+	}
+	return authorizeOwner(w, session, "build", id, owner)
+}
+
+func (s *Server) authorizeSyncTarget(w http.ResponseWriter, r *http.Request, id string) bool {
+	session, _ := auth.SessionFromContext(r.Context())
+	if owner, err := s.builds.BuildOwner(r.Context(), id); err == nil {
+		return authorizeOwner(w, session, "build", id, owner)
+	}
+	if owner, err := s.builds.EnvironmentOwner(r.Context(), id); err == nil {
+		return authorizeOwner(w, session, "environment", id, owner)
+	}
+	writeError(w, http.StatusNotFound, fmt.Errorf("sync target %s not found", id))
+	return false
+}
+
 func (s *Server) activateEnv(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !s.authorizeEnv(w, r, id) {
+		return
+	}
 	token, err := s.builds.EnvironmentToken(r.Context(), id)
 	if err != nil {
 		writeError(w, http.StatusNotFound, err)
@@ -245,6 +413,9 @@ func (s *Server) activateEnv(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deactivateEnv(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !s.authorizeEnv(w, r, id) {
+		return
+	}
 	if err := s.builds.DeactivateEnvironment(r.Context(), id); err != nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
@@ -256,6 +427,9 @@ func (s *Server) deactivateEnv(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteEnv(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !s.authorizeEnv(w, r, id) {
+		return
+	}
 	if err := s.builds.DeleteEnvironment(r.Context(), id); err != nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
@@ -267,7 +441,10 @@ func (s *Server) deleteEnv(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) envExec(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	websocket.Handler(func(ws *websocket.Conn) {
+	if !s.authorizeEnv(w, r, id) {
+		return
+	}
+	serveWebSocket(w, r, func(ws *websocket.Conn) {
 		defer ws.Close()
 		s.sync.BeginExec(id)
 		defer s.sync.EndExec(id)
@@ -317,7 +494,7 @@ func (s *Server) envExec(w http.ResponseWriter, r *http.Request) {
 		if err != nil && ctx.Err() == nil {
 			_, _ = output.Write([]byte("\r\n[zeta] " + err.Error() + "\r\n"))
 		}
-	}).ServeHTTP(w, r)
+	}, true)
 }
 
 type execOutput struct {
@@ -435,30 +612,39 @@ func (s *Server) ensureEnvSession(ctx context.Context, id string) {
 
 func (s *Server) syncAgent(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	token := r.URL.Query().Get("token")
+	token := bearerToken(r)
+	if token == "" {
+		token = r.URL.Query().Get("token")
+	}
 	if token == "" {
 		http.Error(w, "missing token", http.StatusUnauthorized)
 		return
 	}
 	s.ensureEnvSession(r.Context(), id)
-	websocket.Handler(func(ws *websocket.Conn) {
+	serveWebSocket(w, r, func(ws *websocket.Conn) {
 		defer ws.Close()
 		_ = s.sync.AttachAgent(id, token, ws)
-	}).ServeHTTP(w, r)
+	}, false)
 }
 
 func (s *Server) syncClient(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !s.authorizeSyncTarget(w, r, id) {
+		return
+	}
 	s.ensureEnvSession(r.Context(), id)
-	websocket.Handler(func(ws *websocket.Conn) {
+	serveWebSocket(w, r, func(ws *websocket.Conn) {
 		defer ws.Close()
 		s.sync.BeginClient(id)
 		defer s.sync.EndClient(id)
 		_ = s.sync.AttachClient(id, ws)
-	}).ServeHTTP(w, r)
+	}, true)
 }
 
 func (s *Server) logs(w http.ResponseWriter, r *http.Request) {
+	if !s.authorizeBuild(w, r, r.PathValue("id")) {
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("X-Accel-Buffering", "no")
@@ -469,6 +655,9 @@ func (s *Server) logs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) metrics(w http.ResponseWriter, r *http.Request) {
+	if !s.authorizeBuild(w, r, r.PathValue("id")) {
+		return
+	}
 	stats, err := s.builds.Metrics(r.Context(), r.PathValue("id"))
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
@@ -521,6 +710,9 @@ func (s *Server) deleteVolume(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) artifact(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if !s.authorizeBuild(w, r, id) {
+		return
+	}
 	w.Header().Set("Content-Type", "application/x-tar")
 	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%q", id+".tar"))
 	if err := s.builds.Artifact(r.Context(), id, w); err != nil {

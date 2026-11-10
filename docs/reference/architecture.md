@@ -128,8 +128,8 @@ Deployment zeta-env-<id> (replicas 0 or 1)
   |- env   : profile image, command "sleep infinity", workingDir /workspace
   |          mounts: /workspace (PVC zeta-env-<id>), /cache (shared cache PVC)
   `- syncd : image zeta/portal:0.1, command /syncd
-             env: TOKEN (Secret zeta-env-<id>-sync),
-                  ZETA_SYNC_URL=ws://zeta-portal/api/sync/<id>/agent?token=$(TOKEN),
+             env: ZETA_SYNC_TOKEN (Secret zeta-env-<id>-sync),
+                  ZETA_SYNC_URL=ws://zeta-portal/api/sync/<id>/agent,
                   ZETA_WORKSPACE=/workspace,
                   ZETA_SYNC_ENV=1
              mounts: /workspace
@@ -200,8 +200,8 @@ environment was removed but its volume is still terminating.
 | `Build` | id, profile, language, repo, commit, owner, status, pod, timestamps, durations, cache metrics |
 | `Profile` | name, language, image, commands, artifactPath, cacheDir, PVCs, resources, env, metrics |
 | `Volume` | name, role, capacity, storageClass, createdAt, last use, inUse, resizable |
-| `Environment` | id, profile, active, sizeBytes, storageClass, createdAt |
-| `EnvSpec` / `EnvRequest` | id/name, profile, image, env, size, token |
+| `Environment` | id, profile, owner, active, sizeBytes, storageClass, createdAt |
+| `EnvSpec` / `EnvRequest` | id/name, profile, owner, image, env, size, token |
 
 ## Design choices
 
@@ -243,7 +243,9 @@ a developer workstation all day.
 ## Failure and recovery
 
 - **Portal restart:** sync sessions are in memory and are recreated from the
-  Secret when needed. Sessions are invalidated if `--oidc-session-key` is random.
+  Secret when needed. OIDC login flow state is stored in a signed `zeta_oidc`
+  cookie, so it survives portal restarts and works across replicas. Sessions are
+  invalidated if `--oidc-session-key` is random.
 - **Idle environment:** scaled to zero; `zeta activate` starts it again with the
   same volume.
 - **Stuck build:** `ActiveDeadlineSeconds` terminates it; the TTL removes it.

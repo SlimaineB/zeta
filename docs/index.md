@@ -139,7 +139,8 @@ zeta CLI  <--- WebSocket --->  portal sync hub  <--- WebSocket --->  syncd
 
 - It is not a full CI/CD system with SCM webhooks, pipelines, approvals, and
   deployment stages.
-- It does not provide per-group RBAC or strong multi-tenant isolation yet.
+- It does not provide full per-group RBAC or strong multi-tenant isolation yet;
+  builds and environments are owner-scoped with an admin override.
 - It does not build or push OCI images; it produces build artifacts on a PVC.
 - It is not a remote cache or a distributed build system for very large
   monorepos.

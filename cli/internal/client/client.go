@@ -264,6 +264,7 @@ func (c *Client) DeleteVolume(ctx context.Context, name string) error {
 type Environment struct {
 	ID           string    `json:"id"`
 	Profile      string    `json:"profile"`
+	Owner        string    `json:"owner,omitempty"`
 	Active       bool      `json:"active"`
 	SizeBytes    int64     `json:"sizeBytes"`
 	StorageClass string    `json:"storageClass"`

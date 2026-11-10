@@ -45,6 +45,7 @@ const (
 	lastBuildAnnotation   = "zeta.io/last-build"
 	lastProfileAnnotation = "zeta.io/last-profile"
 	lastOwnerAnnotation   = "zeta.io/last-owner"
+	ownerAnnotation       = "zeta.io/owner"
 	defaultArtifactsSize  = "1Gi"
 	defaultCacheSize      = "2Gi"
 	defaultContextSize    = "2Gi"
@@ -267,7 +268,7 @@ func (r *Repository) Create(ctx context.Context, spec domain.BuildSpec) (string,
 		"zeta.io/language":      profile.Language,
 		"zeta.io/repo":          spec.Repo,
 		"zeta.io/commit":        spec.Commit,
-		"zeta.io/owner":         spec.Owner,
+		ownerAnnotation:         spec.Owner,
 		"zeta.io/artifact-path": profile.ArtifactPath,
 		"zeta.io/cache-pvc":     cacheName,
 		"zeta.io/artifacts-pvc": artifactsName,
@@ -280,7 +281,7 @@ func (r *Repository) Create(ctx context.Context, spec domain.BuildSpec) (string,
 	podAnnotations := map[string]string{
 		"zeta.io/repo":   spec.Repo,
 		"zeta.io/commit": spec.Commit,
-		"zeta.io/owner":  spec.Owner,
+		ownerAnnotation:  spec.Owner,
 	}
 	if spec.ContextPath != "" {
 		annotations["zeta.io/context-path"] = spec.ContextPath
@@ -349,7 +350,8 @@ func (r *Repository) Create(ctx context.Context, spec domain.BuildSpec) (string,
 			Command:         []string{"/syncd"},
 			SecurityContext: lockedContext(),
 			Env: []corev1.EnvVar{
-				{Name: "ZETA_SYNC_URL", Value: fmt.Sprintf("ws://zeta-portal/api/sync/%s/agent?token=%s", name, spec.SyncToken)},
+				{Name: "ZETA_SYNC_TOKEN", Value: spec.SyncToken},
+				{Name: "ZETA_SYNC_URL", Value: fmt.Sprintf("ws://zeta-portal/api/sync/%s/agent", name)},
 				{Name: "ZETA_WORKSPACE", Value: "/workspace"},
 				{Name: "ZETA_ARTIFACTS", Value: profile.ArtifactPath},
 			},
@@ -519,6 +521,14 @@ func buildScript(p domain.Profile) string {
 	return b.String()
 }
 
+func (r *Repository) BuildOwner(ctx context.Context, id string) (string, error) {
+	job, err := r.batch.Jobs(r.namespace).Get(ctx, id, metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return job.Annotations[ownerAnnotation], nil
+}
+
 func (r *Repository) List(ctx context.Context) ([]domain.Build, error) {
 	list, err := r.batch.Jobs(r.namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: managedBy + "=" + managedValue,
@@ -534,7 +544,7 @@ func (r *Repository) List(ctx context.Context) ([]domain.Build, error) {
 			Language:  job.Annotations["zeta.io/language"],
 			Repo:      job.Annotations["zeta.io/repo"],
 			Commit:    job.Annotations["zeta.io/commit"],
-			Owner:     job.Annotations["zeta.io/owner"],
+			Owner:     job.Annotations[ownerAnnotation],
 			CreatedAt: job.CreationTimestamp.Time,
 			Status:    statusOf(&job),
 		}
@@ -853,7 +863,7 @@ func envDeployName(id string) string { return "zeta-env-" + id }
 func newSyncToken() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		return "dev-token"
+		panic(fmt.Sprintf("generating sync token: %v", err))
 	}
 	return fmt.Sprintf("%x", b)
 }
@@ -864,6 +874,7 @@ func (r *Repository) EnsureEnvironment(ctx context.Context, spec domain.EnvSpec)
 	}
 	id := slug(spec.ID)
 	profile := spec.Profile
+	owner := strings.TrimSpace(spec.Owner)
 	size := orDefault(spec.Size, defaultEnvSize)
 	storageClass := orDefault(r.storageClass, "local-path")
 	if err := r.ensurePVC(ctx, envPVCName(id), size, "env", storageClass); err != nil {
@@ -879,7 +890,7 @@ func (r *Repository) EnsureEnvironment(ctx context.Context, spec domain.EnvSpec)
 	if _, err := r.ensureEnvToken(ctx, id, spec.Token); err != nil {
 		return domain.Environment{}, err
 	}
-	if err := r.ensureEnvDeployment(ctx, id, profile, cacheName, spec.Image, spec.Env); err != nil {
+	if err := r.ensureEnvDeployment(ctx, id, profile, owner, cacheName, spec.Image, spec.Env); err != nil {
 		return domain.Environment{}, err
 	}
 	return r.environment(ctx, id)
@@ -939,7 +950,7 @@ func (r *Repository) ensureEnvToken(ctx context.Context, id, candidate string) (
 	return token, nil
 }
 
-func (r *Repository) ensureEnvDeployment(ctx context.Context, id string, profile domain.Profile, cacheName, image string, extraEnv map[string]string) error {
+func (r *Repository) ensureEnvDeployment(ctx context.Context, id string, profile domain.Profile, owner, cacheName, image string, extraEnv map[string]string) error {
 	name := envDeployName(id)
 	labels := map[string]string{
 		managedBy:         managedValue,
@@ -970,7 +981,7 @@ func (r *Repository) ensureEnvDeployment(ctx context.Context, id string, profile
 		SecurityContext: lockedContext(),
 		Env: []corev1.EnvVar{
 			{
-				Name: "TOKEN",
+				Name: "ZETA_SYNC_TOKEN",
 				ValueFrom: &corev1.EnvVarSource{
 					SecretKeyRef: &corev1.SecretKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{Name: envSecretName(id)},
@@ -978,7 +989,7 @@ func (r *Repository) ensureEnvDeployment(ctx context.Context, id string, profile
 					},
 				},
 			},
-			{Name: "ZETA_SYNC_URL", Value: fmt.Sprintf("ws://zeta-portal/api/sync/%s/agent?token=$(TOKEN)", id)},
+			{Name: "ZETA_SYNC_URL", Value: fmt.Sprintf("ws://zeta-portal/api/sync/%s/agent", id)},
 			{Name: "ZETA_WORKSPACE", Value: "/workspace"},
 			{Name: "ZETA_SYNC_ENV", Value: "1"},
 		},
@@ -999,7 +1010,7 @@ func (r *Repository) ensureEnvDeployment(ctx context.Context, id string, profile
 			Name:        name,
 			Namespace:   r.namespace,
 			Labels:      labels,
-			Annotations: map[string]string{envProfileAnnotation: profile.Name},
+			Annotations: map[string]string{envProfileAnnotation: profile.Name, ownerAnnotation: owner},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptrI32(0),
@@ -1047,6 +1058,7 @@ func (r *Repository) environment(ctx context.Context, id string) (domain.Environ
 	env := domain.Environment{
 		ID:        id,
 		Profile:   dep.Labels["zeta.io/profile"],
+		Owner:     dep.Annotations[ownerAnnotation],
 		Active:    dep.Spec.Replicas != nil && *dep.Spec.Replicas > 0,
 		CreatedAt: dep.CreationTimestamp.Time,
 	}
@@ -1076,6 +1088,7 @@ func (r *Repository) ListEnvironments(ctx context.Context) ([]domain.Environment
 		env := domain.Environment{
 			ID:        id,
 			Profile:   dep.Labels["zeta.io/profile"],
+			Owner:     dep.Annotations[ownerAnnotation],
 			Active:    dep.Spec.Replicas != nil && *dep.Spec.Replicas > 0,
 			CreatedAt: dep.CreationTimestamp.Time,
 		}
@@ -1133,6 +1146,14 @@ func (r *Repository) DeleteEnvironment(ctx context.Context, id string) error {
 		return fmt.Errorf("environment %s was removed but its volume is still terminating", id)
 	}
 	return nil
+}
+
+func (r *Repository) EnvironmentOwner(ctx context.Context, id string) (string, error) {
+	dep, err := r.apps.Deployments(r.namespace).Get(ctx, envDeployName(id), metav1.GetOptions{})
+	if err != nil {
+		return "", err
+	}
+	return dep.Annotations[ownerAnnotation], nil
 }
 
 func (r *Repository) EnvironmentToken(ctx context.Context, id string) (string, error) {

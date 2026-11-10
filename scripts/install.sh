@@ -19,9 +19,16 @@ ADOPT=0
 DRY_RUN=0
 AUTH_DEV=1
 OIDC_ISSUER=""
+OIDC_DISCOVERY_URL=""
+OIDC_AUTHORIZATION_URL=""
 OIDC_CLIENT_ID="zeta-portal"
 OIDC_CLIENT_SECRET=""
 OIDC_REDIRECT_URL=""
+OIDC_ALLOWED_GROUPS=""
+OIDC_ALLOWED_USERS=""
+OIDC_USERNAME_CLAIM=""
+OIDC_EMAIL_CLAIM=""
+OIDC_GROUPS_CLAIM=""
 SECURE_COOKIE=0
 
 usage() {
@@ -48,9 +55,17 @@ Options:
   --no-ingress              Disable the Ingress
   --adopt                   Adopt existing non-Helm Zeta resources in the namespace
   --oidc-issuer URL         Enable OIDC instead of development auth
+  --oidc-discovery-url URL  OIDC discovery URL (default: issuer)
+  --oidc-authorization-url URL
+                            OIDC authorization endpoint override
   --oidc-client-id ID       OIDC client ID (default: zeta-portal)
   --oidc-client-secret S    OIDC client secret
   --oidc-redirect-url URL   OIDC callback URL
+  --oidc-allowed-groups L   Comma-separated allowed OIDC groups
+  --oidc-allowed-users L    Comma-separated allowed OIDC users
+  --oidc-username-claim C   OIDC username claim (default: preferred_username)
+  --oidc-email-claim C      OIDC email claim (default: email)
+  --oidc-groups-claim C     OIDC groups claim (default: groups)
   --auth-secret NAME        Use an existing Secret with session-key and oidc-client-secret
   --secure-cookie           Set Secure cookies (HTTPS)
   --dry-run                 Print the Helm command without changing the cluster
@@ -81,9 +96,16 @@ while [ $# -gt 0 ]; do
     --storage-class) STORAGE_CLASS="$2"; shift 2 ;;
     --auth-secret) AUTH_SECRET="$2"; shift 2 ;;
     --oidc-issuer) AUTH_DEV=0; OIDC_ISSUER="$2"; shift 2 ;;
+    --oidc-discovery-url) OIDC_DISCOVERY_URL="$2"; shift 2 ;;
+    --oidc-authorization-url) OIDC_AUTHORIZATION_URL="$2"; shift 2 ;;
     --oidc-client-id) OIDC_CLIENT_ID="$2"; shift 2 ;;
     --oidc-client-secret) OIDC_CLIENT_SECRET="$2"; shift 2 ;;
     --oidc-redirect-url) OIDC_REDIRECT_URL="$2"; shift 2 ;;
+    --oidc-allowed-groups) OIDC_ALLOWED_GROUPS="$2"; shift 2 ;;
+    --oidc-allowed-users) OIDC_ALLOWED_USERS="$2"; shift 2 ;;
+    --oidc-username-claim) OIDC_USERNAME_CLAIM="$2"; shift 2 ;;
+    --oidc-email-claim) OIDC_EMAIL_CLAIM="$2"; shift 2 ;;
+    --oidc-groups-claim) OIDC_GROUPS_CLAIM="$2"; shift 2 ;;
     --from-registry) FROM_REGISTRY=1; shift ;;
     --with-git-server) WITH_GIT_SERVER=1; shift ;;
     --no-ingress) INGRESS=0; shift ;;
@@ -174,11 +196,32 @@ else
     exit 1
   fi
   helm_args+=(--set auth.dev=false --set auth.oidc.issuer="$OIDC_ISSUER" --set auth.oidc.clientID="$OIDC_CLIENT_ID")
+  if [ -n "$OIDC_DISCOVERY_URL" ]; then
+    helm_args+=(--set auth.oidc.discoveryURL="$OIDC_DISCOVERY_URL")
+  fi
+  if [ -n "$OIDC_AUTHORIZATION_URL" ]; then
+    helm_args+=(--set auth.oidc.authorizationURL="$OIDC_AUTHORIZATION_URL")
+  fi
   if [ -n "$OIDC_CLIENT_SECRET" ]; then
     helm_args+=(--set auth.oidc.clientSecret="$OIDC_CLIENT_SECRET")
   fi
   if [ -n "$OIDC_REDIRECT_URL" ]; then
     helm_args+=(--set auth.oidc.redirectURL="$OIDC_REDIRECT_URL")
+  fi
+  if [ -n "$OIDC_ALLOWED_GROUPS" ]; then
+    helm_args+=(--set auth.oidc.allowedGroups="${OIDC_ALLOWED_GROUPS//,/\\,}")
+  fi
+  if [ -n "$OIDC_ALLOWED_USERS" ]; then
+    helm_args+=(--set auth.oidc.allowedUsers="${OIDC_ALLOWED_USERS//,/\\,}")
+  fi
+  if [ -n "$OIDC_USERNAME_CLAIM" ]; then
+    helm_args+=(--set auth.oidc.usernameClaim="$OIDC_USERNAME_CLAIM")
+  fi
+  if [ -n "$OIDC_EMAIL_CLAIM" ]; then
+    helm_args+=(--set auth.oidc.emailClaim="$OIDC_EMAIL_CLAIM")
+  fi
+  if [ -n "$OIDC_GROUPS_CLAIM" ]; then
+    helm_args+=(--set auth.oidc.groupsClaim="$OIDC_GROUPS_CLAIM")
   fi
 fi
 

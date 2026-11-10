@@ -33,6 +33,22 @@ zeta login --server http://zeta.local --email dev@example.com --password dev
 The cookie is invalid or expired. Run `zeta login` again. If the portal restarted
 without a fixed `--oidc-session-key`, all sessions were invalidated.
 
+### OIDC sign-in fails or redirects back to login
+
+Check that:
+
+- the provider callback URL is exactly `https://<host>/oidc/callback`;
+- `--oidc-issuer` matches the `issuer` returned by discovery;
+- `--oidc-discovery-url` is reachable from the portal if you use a split-horizon
+  discovery endpoint;
+- the user matches `--oidc-allowed-groups` and `--oidc-allowed-users` when those
+  allowlists are configured;
+- all replicas use the same `--oidc-session-key`; the short-lived `zeta_oidc`
+  flow cookie is signed with it.
+
+If the provider returns groups only through userinfo, make sure the `groups`
+scope is requested or set `--oidc-groups-claim` to the claim your provider uses.
+
 ### Ingress 404
 
 The `Host` header does not match `zeta.local`. Check the hosts entry or use a

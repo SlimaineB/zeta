@@ -22,28 +22,61 @@ The portal supports two modes:
 
 - **Development mode** (`--oidc-dev`): built-in users and passwords, intended
   for local use only.
-- **OIDC**: authorization code flow with the configured issuer, client ID,
-  secret, scopes, and callback URL.
+- **OIDC**: authorization code flow with PKCE, nonce verification, the configured
+  issuer, client ID, secret, scopes, and callback URL.
 
-Sessions are signed with an HMAC key (`--oidc-session-key`) and stored in the
-`zeta_session` cookie. If no key is provided, a random key is generated at
-startup; all sessions are invalidated on restart.
+The short-lived login state is stored in a signed `zeta_oidc` cookie, not in
+process memory, so login works with multiple portal replicas. Sessions are signed
+with an HMAC key (`--oidc-session-key`) and stored in the `zeta_session` cookie.
+If no key is provided, a random key is generated at startup; all sessions are
+invalidated on restart.
+
+OIDC claims are configurable with `--oidc-username-claim`,
+`--oidc-email-claim`, and `--oidc-groups-claim`. Groups and profile data are
+merged from the userinfo endpoint when missing from the ID token.
+`--oidc-allowed-groups` and `--oidc-allowed-users` optionally restrict who can
+sign in; when both are set, a user must match both allowlists.
 
 In production:
 
 - set a fixed, random session key of at least 32 characters;
 - set `--secure-cookie` behind HTTPS;
 - keep the session TTL short enough for your policy (default `12h`);
-- configure the OIDC provider to allow exactly the callback URL.
+- configure the OIDC provider to allow exactly the callback URL;
+- use an allowlist when the provider can authenticate users outside your team.
+
+## Transport and browser protections
+
+- Browser WebSocket endpoints (`/api/envs/{id}/exec` and
+  `/api/sync/{id}/client`) require an `Origin` header matching the portal host.
+- The sync agent authenticates with `Authorization: Bearer <token>`. The older
+  `?token=` query parameter is still accepted for backward compatibility but is
+  no longer used by newly created environments or build Jobs.
+- State-changing API requests reject cross-site `Sec-Fetch-Site`, `Origin`, or
+  `Referer` values. Non-browser clients that send none of these headers, such as
+  the CLI, are still accepted.
+- The session cookie is signed but not encrypted. It contains identity and group
+  data, not credentials. Logout clears the local cookie; the portal does not
+  implement IdP-initiated or RP-initiated revocation yet.
 
 ## Authorization
 
 The portal's ServiceAccount is namespace-scoped. It can create and inspect Jobs,
 Pods, Pod logs, Deployments, Secrets, and PVCs in `zeta-poc`.
 
-Current limitation: **there is no per-group RBAC**. Every authenticated user can
-launch and view builds and environments in the namespace. The `groups` claim is
-collected but not enforced.
+Environments and builds are owner-scoped. The portal records the authenticated
+user's email (or username when the provider omits email) as the owner when
+creating an environment or build. Lifecycle
+operations, exec, sync, logs, metrics, and artifact downloads require the owner
+or membership in the `admin` / `admins` group. Listing builds and environments
+remains available to every authenticated user. Resources created before owner
+tracking, or with an empty owner, remain accessible to any authenticated user for
+backward compatibility.
+
+There is still no full per-group RBAC, and volumes remain shared across the
+namespace. The `groups` claim is collected and can be used in
+`--oidc-allowed-groups`, but it is not used for arbitrary group-to-resource
+policy.
 
 ## Pod security
 
@@ -89,7 +122,9 @@ Use Kubernetes Secrets, not literals in profiles, for credentials.
 
 ## Limits and known gaps
 
-- No per-group RBAC or strong multi-tenant isolation.
+- No full per-group RBAC or strong multi-tenant isolation; volumes remain shared.
+- No IdP logout/revocation; sessions remain valid until expiry after local logout.
+- The session cookie is signed but not encrypted.
 - No private SSH repository support; use HTTPS tokens.
 - Artifacts are stored per language path, not per build.
 - No S3/MinIO backend; PVCs use `local-path` on the reference single-node cluster.

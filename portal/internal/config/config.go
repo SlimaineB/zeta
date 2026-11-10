@@ -25,15 +25,22 @@ type Config struct {
 }
 
 type AuthConfig struct {
-	OIDCIssuer       string
-	OIDCClientID     string
-	OIDCClientSecret string
-	OIDCRedirectURL  string
-	OIDCScopes       string
-	OIDCSessionKey   string
-	OIDCSessionTTL   string
-	OIDCDev          bool
-	SecureCookie     bool
+	OIDCIssuer           string
+	OIDCDiscoveryURL     string
+	OIDCAuthorizationURL string
+	OIDCClientID         string
+	OIDCClientSecret     string
+	OIDCRedirectURL      string
+	OIDCScopes           string
+	OIDCAllowedGroups    string
+	OIDCAllowedUsers     string
+	OIDCUsernameClaim    string
+	OIDCEmailClaim       string
+	OIDCGroupsClaim      string
+	OIDCSessionKey       string
+	OIDCSessionTTL       string
+	OIDCDev              bool
+	SecureCookie         bool
 }
 
 func Load(args []string) (Config, error) {
@@ -47,15 +54,22 @@ func Load(args []string) (Config, error) {
 		ImageTag:      env("ZETA_IMAGE_TAG", ""),
 		StorageClass:  env("ZETA_STORAGE_CLASS", "local-path"),
 		Auth: AuthConfig{
-			OIDCIssuer:       env("ZETA_OIDC_ISSUER", ""),
-			OIDCClientID:     env("ZETA_OIDC_CLIENT_ID", "zeta-portal"),
-			OIDCClientSecret: env("ZETA_OIDC_CLIENT_SECRET", ""),
-			OIDCRedirectURL:  env("ZETA_OIDC_REDIRECT_URL", ""),
-			OIDCScopes:       env("ZETA_OIDC_SCOPES", "openid,profile,email,groups"),
-			OIDCSessionKey:   env("ZETA_OIDC_SESSION_KEY", ""),
-			OIDCSessionTTL:   env("ZETA_OIDC_SESSION_TTL", "12h"),
-			OIDCDev:          envBool("ZETA_OIDC_DEV", false),
-			SecureCookie:     envBool("ZETA_SECURE_COOKIE", false),
+			OIDCIssuer:           env("ZETA_OIDC_ISSUER", ""),
+			OIDCDiscoveryURL:     env("ZETA_OIDC_DISCOVERY_URL", ""),
+			OIDCAuthorizationURL: env("ZETA_OIDC_AUTHORIZATION_URL", ""),
+			OIDCClientID:         env("ZETA_OIDC_CLIENT_ID", "zeta-portal"),
+			OIDCClientSecret:     env("ZETA_OIDC_CLIENT_SECRET", ""),
+			OIDCRedirectURL:      env("ZETA_OIDC_REDIRECT_URL", ""),
+			OIDCScopes:           env("ZETA_OIDC_SCOPES", "openid,profile,email,groups"),
+			OIDCAllowedGroups:    env("ZETA_OIDC_ALLOWED_GROUPS", ""),
+			OIDCAllowedUsers:     env("ZETA_OIDC_ALLOWED_USERS", ""),
+			OIDCUsernameClaim:    env("ZETA_OIDC_USERNAME_CLAIM", "preferred_username"),
+			OIDCEmailClaim:       env("ZETA_OIDC_EMAIL_CLAIM", "email"),
+			OIDCGroupsClaim:      env("ZETA_OIDC_GROUPS_CLAIM", "groups"),
+			OIDCSessionKey:       env("ZETA_OIDC_SESSION_KEY", ""),
+			OIDCSessionTTL:       env("ZETA_OIDC_SESSION_TTL", "12h"),
+			OIDCDev:              envBool("ZETA_OIDC_DEV", false),
+			SecureCookie:         envBool("ZETA_SECURE_COOKIE", false),
 		},
 	}
 
@@ -76,10 +90,17 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&volumeMax, "volume-max", volumeMax, "maximum volume size in Zeta")
 	fs.StringVar(&envIdle, "env-idle-timeout", envIdle, "scale environments to zero after this idle duration (0 disables)")
 	fs.StringVar(&cfg.Auth.OIDCIssuer, "oidc-issuer", cfg.Auth.OIDCIssuer, "OIDC issuer")
+	fs.StringVar(&cfg.Auth.OIDCDiscoveryURL, "oidc-discovery-url", cfg.Auth.OIDCDiscoveryURL, "OIDC discovery URL (default: issuer)")
+	fs.StringVar(&cfg.Auth.OIDCAuthorizationURL, "oidc-authorization-url", cfg.Auth.OIDCAuthorizationURL, "OIDC authorization endpoint override")
 	fs.StringVar(&cfg.Auth.OIDCClientID, "oidc-client-id", cfg.Auth.OIDCClientID, "OIDC client ID")
 	fs.StringVar(&cfg.Auth.OIDCClientSecret, "oidc-client-secret", cfg.Auth.OIDCClientSecret, "OIDC client secret (empty = PKCE public)")
 	fs.StringVar(&cfg.Auth.OIDCRedirectURL, "oidc-redirect-url", cfg.Auth.OIDCRedirectURL, "OIDC callback URL")
 	fs.StringVar(&cfg.Auth.OIDCScopes, "oidc-scopes", cfg.Auth.OIDCScopes, "OIDC scopes")
+	fs.StringVar(&cfg.Auth.OIDCAllowedGroups, "oidc-allowed-groups", cfg.Auth.OIDCAllowedGroups, "comma-separated allowed OIDC groups")
+	fs.StringVar(&cfg.Auth.OIDCAllowedUsers, "oidc-allowed-users", cfg.Auth.OIDCAllowedUsers, "comma-separated allowed OIDC usernames, emails, or subjects")
+	fs.StringVar(&cfg.Auth.OIDCUsernameClaim, "oidc-username-claim", cfg.Auth.OIDCUsernameClaim, "OIDC username claim")
+	fs.StringVar(&cfg.Auth.OIDCEmailClaim, "oidc-email-claim", cfg.Auth.OIDCEmailClaim, "OIDC email claim")
+	fs.StringVar(&cfg.Auth.OIDCGroupsClaim, "oidc-groups-claim", cfg.Auth.OIDCGroupsClaim, "OIDC groups claim")
 	fs.StringVar(&cfg.Auth.OIDCSessionKey, "oidc-session-key", cfg.Auth.OIDCSessionKey, "session signing key")
 	fs.StringVar(&cfg.Auth.OIDCSessionTTL, "oidc-session-ttl", cfg.Auth.OIDCSessionTTL, "session lifetime")
 	fs.BoolVar(&cfg.Auth.OIDCDev, "oidc-dev", cfg.Auth.OIDCDev, "dev local auth (not for prod)")

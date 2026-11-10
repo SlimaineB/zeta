@@ -2,6 +2,7 @@ package kube
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -162,7 +163,7 @@ func TestCreateUsesProfileVolumes(t *testing.T) {
 		ArtifactsSize: "2Gi",
 		Commands:      []string{"true"},
 	}
-	id, err := r.Create(context.Background(), domain.BuildSpec{Repo: "git://example/repo.git", Profile: profile, Owner: "dev@example.com"})
+	id, err := r.Create(context.Background(), domain.BuildSpec{Repo: "git://example/repo.git", Profile: profile, Owner: "dev@example.com", SyncToken: "sync-secret"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,6 +174,13 @@ func TestCreateUsesProfileVolumes(t *testing.T) {
 	if job.Annotations["zeta.io/cache-pvc"] != "go-cache" || job.Annotations["zeta.io/artifacts-pvc"] != "go-artifacts" {
 		t.Fatalf("job annotations = %+v", job.Annotations)
 	}
+	owner, err := r.BuildOwner(context.Background(), id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if owner != "dev@example.com" {
+		t.Fatalf("owner = %q", owner)
+	}
 	claims := map[string]string{}
 	for _, v := range job.Spec.Template.Spec.Volumes {
 		if v.PersistentVolumeClaim != nil {
@@ -181,6 +189,20 @@ func TestCreateUsesProfileVolumes(t *testing.T) {
 	}
 	if claims["cache"] != "go-cache" || claims["artifacts"] != "go-artifacts" {
 		t.Fatalf("job volumes = %+v", claims)
+	}
+	syncEnv := map[string]string{}
+	for _, c := range job.Spec.Template.Spec.Containers {
+		if c.Name == "syncd" {
+			for _, env := range c.Env {
+				syncEnv[env.Name] = env.Value
+			}
+		}
+	}
+	if syncEnv["ZETA_SYNC_TOKEN"] != "sync-secret" {
+		t.Fatalf("sync token env = %q", syncEnv["ZETA_SYNC_TOKEN"])
+	}
+	if strings.Contains(syncEnv["ZETA_SYNC_URL"], "token=") {
+		t.Fatalf("sync token leaked into URL: %q", syncEnv["ZETA_SYNC_URL"])
 	}
 	for name, size := range map[string]string{"go-cache": "3Gi", "go-artifacts": "2Gi"} {
 		pvc, err := cs.CoreV1().PersistentVolumeClaims("test").Get(context.Background(), name, metav1.GetOptions{})
@@ -290,11 +312,11 @@ func TestEnsureEnvironment(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	r := &Repository{core: cs.CoreV1(), apps: cs.AppsV1(), namespace: "test", storageClass: "local-path"}
 	profile := domain.Profile{Name: "go", Image: "zeta/go:0.1", WorkDir: "/workspace", CachePVC: "shared-cache"}
-	env, err := r.EnsureEnvironment(context.Background(), domain.EnvSpec{ID: "My Project", Profile: profile, Token: "tok"})
+	env, err := r.EnsureEnvironment(context.Background(), domain.EnvSpec{ID: "My Project", Profile: profile, Owner: "alice@example.com", Token: "tok"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if env.ID != "my-project" || env.Profile != "go" || env.Active {
+	if env.ID != "my-project" || env.Profile != "go" || env.Owner != "alice@example.com" || env.Active {
 		t.Fatalf("unexpected env: %+v", env)
 	}
 	wantSize := quantity(defaultEnvSize)
@@ -322,8 +344,29 @@ func TestEnsureEnvironment(t *testing.T) {
 	if dep.Spec.Replicas == nil || *dep.Spec.Replicas != 0 {
 		t.Fatalf("expected replicas 0, got %v", dep.Spec.Replicas)
 	}
+	if dep.Annotations[ownerAnnotation] != "alice@example.com" {
+		t.Fatalf("unexpected owner annotation: %+v", dep.Annotations)
+	}
+	owner, err := r.EnvironmentOwner(context.Background(), "my-project")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if owner != "alice@example.com" {
+		t.Fatalf("unexpected owner: %q", owner)
+	}
 	if len(dep.Spec.Template.Spec.Containers) != 2 {
 		t.Fatalf("expected 2 containers, got %d", len(dep.Spec.Template.Spec.Containers))
+	}
+	syncd := dep.Spec.Template.Spec.Containers[1]
+	envVars := map[string]string{}
+	for _, item := range syncd.Env {
+		envVars[item.Name] = item.Value
+	}
+	if envVars["ZETA_SYNC_URL"] != "ws://zeta-portal/api/sync/my-project/agent" {
+		t.Fatalf("unexpected sync URL: %q", envVars["ZETA_SYNC_URL"])
+	}
+	if strings.Contains(envVars["ZETA_SYNC_URL"], "token=") {
+		t.Fatalf("sync token leaked into URL: %q", envVars["ZETA_SYNC_URL"])
 	}
 }
 

@@ -12,7 +12,10 @@ import (
 	"time"
 )
 
-const sessionCookie = "zeta_session"
+const (
+	sessionCookie = "zeta_session"
+	oidcCookie    = "zeta_oidc"
+)
 
 type Session struct {
 	Username  string    `json:"username"`
@@ -32,23 +35,20 @@ func withSession(ctx context.Context, s Session) context.Context {
 	return context.WithValue(ctx, sessionCtxKey{}, s)
 }
 
-func (s *Service) setSession(w http.ResponseWriter, session Session) {
+func (s *Service) setSession(w http.ResponseWriter, r *http.Request, session Session) {
 	payload, _ := json.Marshal(session)
-	mac := hmac.New(sha256.New, s.sessionKey)
-	mac.Write(payload)
-	value := base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
-		Value:    value,
+		Value:    s.signValue(payload),
 		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   s.cfg.SecureCookie,
+		Secure:   s.cookieSecure(r),
 		MaxAge:   int(s.ttl.Seconds()),
 	})
 }
 
-func (s *Service) clearSession(w http.ResponseWriter) {
+func (s *Service) clearSession(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    "",
@@ -56,7 +56,19 @@ func (s *Service) clearSession(w http.ResponseWriter) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
-		Secure:   s.cfg.SecureCookie,
+		Secure:   s.cookieSecure(r),
+	})
+}
+
+func (s *Service) clearFlow(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     oidcCookie,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+		Secure:   s.cookieSecure(r),
 	})
 }
 
@@ -65,22 +77,9 @@ func (s *Service) sessionFromRequest(r *http.Request) (Session, error) {
 	if err != nil {
 		return Session{}, err
 	}
-	parts := strings.Split(cookie.Value, ".")
-	if len(parts) != 2 {
-		return Session{}, errors.New("session invalide")
-	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
+	payload, err := s.verifyValue(cookie.Value)
 	if err != nil {
 		return Session{}, err
-	}
-	sig, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return Session{}, err
-	}
-	mac := hmac.New(sha256.New, s.sessionKey)
-	mac.Write(payload)
-	if !hmac.Equal(mac.Sum(nil), sig) {
-		return Session{}, errors.New("signature de session invalide")
 	}
 	var session Session
 	if err := json.Unmarshal(payload, &session); err != nil {
@@ -90,4 +89,31 @@ func (s *Service) sessionFromRequest(r *http.Request) (Session, error) {
 		return Session{}, errors.New("session expired")
 	}
 	return session, nil
+}
+
+func (s *Service) signValue(payload []byte) string {
+	mac := hmac.New(sha256.New, s.sessionKey)
+	mac.Write(payload)
+	return base64.RawURLEncoding.EncodeToString(payload) + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func (s *Service) verifyValue(value string) ([]byte, error) {
+	parts := strings.Split(value, ".")
+	if len(parts) != 2 {
+		return nil, errors.New("invalid signature")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[0])
+	if err != nil {
+		return nil, errors.New("invalid signature")
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return nil, errors.New("invalid signature")
+	}
+	mac := hmac.New(sha256.New, s.sessionKey)
+	mac.Write(payload)
+	if !hmac.Equal(signature, mac.Sum(nil)) {
+		return nil, errors.New("invalid signature")
+	}
+	return payload, nil
 }

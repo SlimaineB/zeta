@@ -99,3 +99,23 @@ func TestApplySymlinkSafety(t *testing.T) {
 		t.Fatal("lien absolu d'artefact ne devrait pas être créé")
 	}
 }
+
+func TestWebsocketOrigin(t *testing.T) {
+	cases := map[string]string{
+		"ws://zeta.local/api/sync/demo/client":  "http://zeta.local",
+		"wss://zeta.example/api/envs/demo/exec": "https://zeta.example",
+		"ws://zeta-portal:8080/api/sync/demo":   "http://zeta-portal:8080",
+	}
+	for raw, want := range cases {
+		got, err := websocketOrigin(raw)
+		if err != nil {
+			t.Fatalf("websocketOrigin(%q): %v", raw, err)
+		}
+		if got != want {
+			t.Fatalf("websocketOrigin(%q) = %q, want %q", raw, got, want)
+		}
+	}
+	if _, err := websocketOrigin("http://"); err == nil {
+		t.Fatal("expected invalid URL error")
+	}
+}

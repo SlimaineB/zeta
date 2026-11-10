@@ -70,10 +70,17 @@ ghcr.io/owner/zeta/git-server:0.1.0
 | `auth.secureCookie` | `false` | Set `Secure` cookies; enable behind HTTPS |
 | `auth.existingSecret` | empty | Existing Secret with `session-key` and `oidc-client-secret` |
 | `auth.oidc.issuer` | empty | OIDC issuer; required when `auth.dev=false` |
+| `auth.oidc.discoveryURL` | empty | Discovery URL; defaults to the issuer |
+| `auth.oidc.authorizationURL` | empty | Authorization endpoint override |
 | `auth.oidc.clientID` | `zeta-portal` | OIDC client ID |
 | `auth.oidc.clientSecret` | empty | OIDC client secret |
 | `auth.oidc.redirectURL` | auto | OIDC callback URL |
 | `auth.oidc.scopes` | `openid,profile,email,groups` | OIDC scopes |
+| `auth.oidc.allowedGroups` | empty | Comma-separated allowed groups |
+| `auth.oidc.allowedUsers` | empty | Comma-separated allowed usernames, emails, or subjects |
+| `auth.oidc.usernameClaim` | `preferred_username` | Username claim |
+| `auth.oidc.emailClaim` | `email` | Email claim |
+| `auth.oidc.groupsClaim` | `groups` | Groups claim |
 
 For production, create the Secret yourself so the client secret is not in the
 Helm release values:
@@ -96,6 +103,16 @@ helm upgrade --install zeta oci://ghcr.io/slimaineb/charts/zeta \
 
 The Secret must contain the key `session-key`. `oidc-client-secret` is optional
 and is read by the portal through `ZETA_OIDC_CLIENT_SECRET`.
+
+Set `auth.oidc.discoveryURL` when the portal must fetch discovery from an
+internal address while `auth.oidc.issuer` remains the public issuer. Set
+`auth.oidc.authorizationURL` when the browser must use a different authorization
+endpoint than the one in the discovery document.
+
+`auth.oidc.allowedGroups` and `auth.oidc.allowedUsers` are optional allowlists.
+When set, a user must match at least one group and at least one user entry.
+Entries in `allowedUsers` can be usernames, emails, or subjects. Claim names can
+be changed for providers such as Okta or Microsoft Entra ID.
 
 ### Persistence
 

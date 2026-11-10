@@ -147,6 +147,10 @@ func (s *Service) List(ctx context.Context) ([]domain.Build, error) {
 	return s.repo.List(ctx)
 }
 
+func (s *Service) BuildOwner(ctx context.Context, id string) (string, error) {
+	return s.repo.BuildOwner(ctx, id)
+}
+
 func (s *Service) StreamLogs(ctx context.Context, id string, w io.Writer) error {
 	return s.repo.StreamLogs(ctx, id, w)
 }
@@ -183,7 +187,7 @@ func (s *Service) DeleteVolume(ctx context.Context, name string) error {
 	return s.repo.DeleteVolume(ctx, name)
 }
 
-func (s *Service) CreateEnvironment(ctx context.Context, req domain.EnvRequest, token string) (domain.Environment, error) {
+func (s *Service) CreateEnvironment(ctx context.Context, req domain.EnvRequest, owner, token string) (domain.Environment, error) {
 	if strings.TrimSpace(req.Name) == "" {
 		return domain.Environment{}, fmt.Errorf("environment name required")
 	}
@@ -194,6 +198,7 @@ func (s *Service) CreateEnvironment(ctx context.Context, req domain.EnvRequest, 
 	return s.repo.EnsureEnvironment(ctx, domain.EnvSpec{
 		ID:      req.Name,
 		Profile: profile,
+		Owner:   owner,
 		Image:   req.Image,
 		Env:     req.Env,
 		Size:    req.Size,
@@ -215,6 +220,10 @@ func (s *Service) DeactivateEnvironment(ctx context.Context, id string) error {
 
 func (s *Service) DeleteEnvironment(ctx context.Context, id string) error {
 	return s.repo.DeleteEnvironment(ctx, id)
+}
+
+func (s *Service) EnvironmentOwner(ctx context.Context, id string) (string, error) {
+	return s.repo.EnvironmentOwner(ctx, id)
 }
 
 func (s *Service) EnvironmentToken(ctx context.Context, id string) (string, error) {
