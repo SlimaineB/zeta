@@ -1,0 +1,88 @@
+site_name: Zeta
+site_description: Kubernetes build portal and persistent development environments
+site_url: https://slimaineb.github.io/zeta/
+repo_url: https://github.com/SlimaineB/zeta
+repo_name: SlimaineB/zeta
+edit_uri: edit/main/docs/
+copyright: Copyright &copy; 2026 SlimaineB
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.tabs.link
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+plugins:
+  - search:
+      lang: en
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
+nav:
+  - Home: index.md
+  - Getting started:
+      - Installation: getting-started/installation.md
+      - First build: getting-started/quickstart.md
+  - User guide:
+      - CLI: user-guide/cli.md
+      - Builds: user-guide/builds.md
+      - Persistent environments: user-guide/environments.md
+      - Profiles: user-guide/profiles.md
+      - Volumes and artifacts: user-guide/volumes.md
+  - Reference:
+      - zeta.yaml: reference/zeta-yaml.md
+      - Portal configuration: reference/configuration.md
+      - HTTP API: reference/api.md
+      - Architecture: reference/architecture.md
+  - Operations:
+      - Deployment and operations: operations/deployment.md
+      - Security: operations/security.md
+      - Troubleshooting: operations/troubleshooting.md
+  - Development:
+      - Contributing: development/contributing.md
+      - Repository layout: development/layout.md
+
+extra:
+  generator: false
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/SlimaineB/zeta

@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: artifact-server
+  namespace: zeta-poc
+  labels:
+    app: artifact-server
+spec:
+  restartPolicy: Never
+  activeDeadlineSeconds: 600
+  automountServiceAccountToken: false
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: shell
+      image: alpine:3.20
+      imagePullPolicy: IfNotPresent
+      command:
+        - sh
+        - -c
+        - sleep 3600
+      securityContext:
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+      volumeMounts:
+        - name: artifacts
+          mountPath: /artifacts
+  volumes:
+    - name: artifacts
+      persistentVolumeClaim:
+        claimName: zeta-poc-artifacts

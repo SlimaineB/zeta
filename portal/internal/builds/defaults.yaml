@@ -1,0 +1,98 @@
+profiles:
+  - name: cpp
+    description: C++ CMake/Ninja with persistent ccache cache
+    language: cpp
+    image: zeta/cpp:0.1
+    defaultRepo: git://git-server/cpp.git
+    workDir: /workspace
+    artifactPath: /artifacts/cpp
+    cacheDir: /cache/ccache
+    envFromSecrets:
+      - zeta-build-secrets
+    resources:
+      cpuRequest: 200m
+      memoryRequest: 256Mi
+      cpuLimit: "2"
+      memoryLimit: 2Gi
+      ephemeralStorage: 2Gi
+    maxConcurrent: 1
+    commands:
+      - |
+        export CCACHE_DIR=/cache/ccache
+        export CCACHE_MAXSIZE=2G
+        export CCACHE_BASEDIR=/workspace
+        cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+          -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+        cmake --build build
+        cmake --install build --prefix /artifacts/cpp
+    metrics:
+      - name: ccache_hits
+        command: ccache -s | awk '/Hits:/ {print $2}'
+      - name: ccache_misses
+        command: ccache -s | awk '/Misses:/ {print $2}'
+      - name: cache_bytes
+        command: du -sb /cache/ccache | cut -f1
+
+  - name: python
+    description: Python 3.12 + uv with persistent uv cache
+    language: python
+    image: zeta/python-uv:0.1
+    defaultRepo: git://git-server/python-uv.git
+    workDir: /workspace
+    artifactPath: /artifacts/python
+    cacheDir: /cache/uv
+    envFromSecrets:
+      - zeta-build-secrets
+    resources:
+      cpuRequest: 200m
+      memoryRequest: 256Mi
+      cpuLimit: "2"
+      memoryLimit: 2Gi
+      ephemeralStorage: 2Gi
+    maxConcurrent: 1
+    commands:
+      - |
+        export UV_CACHE_DIR=/cache/uv
+        uv sync --frozen
+        uv run python -m hello_uv
+        uv build --no-build-isolation --out-dir /artifacts/python
+        rm -f /artifacts/python/.gitignore
+    metrics:
+      - name: cache_bytes
+        command: du -sb /cache/uv | cut -f1
+
+  - name: go
+    description: Go modules with persistent GOCACHE/GOMODCACHE cache
+    language: go
+    image: zeta/go:0.1
+    defaultRepo: git://git-server/go.git
+    workDir: /workspace
+    artifactPath: /artifacts/go
+    cacheDir: /cache/go
+    env:
+      PATH: /usr/local/go/bin:/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      GOCACHE: /cache/go-build
+      GOMODCACHE: /cache/go-mod
+    envFromSecrets:
+      - zeta-build-secrets
+    resources:
+      cpuRequest: 300m
+      memoryRequest: 512Mi
+      cpuLimit: "2"
+      memoryLimit: 2Gi
+      ephemeralStorage: 2Gi
+    maxConcurrent: 1
+    commands:
+      - |
+        mkdir -p /artifacts/go /cache/go-build /cache/go-mod
+        go mod download
+        go test ./...
+        if [ -d ./cmd ]; then
+          go build -trimpath -o /artifacts/go/ ./cmd/...
+        else
+          go build -trimpath -o /artifacts/go/app .
+        fi
+    metrics:
+      - name: cache_bytes
+        command: du -sb /cache/go-build /cache/go-mod 2>/dev/null | awk '{s+=$1} END {print s+0}'

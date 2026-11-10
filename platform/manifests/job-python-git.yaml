@@ -1,0 +1,86 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: poc-python-git
+  namespace: zeta-poc
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: poc-python-git
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: context
+          image: zeta/git-server:0.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - git config --global --add safe.directory /workspace && git clone --depth=1 git://git-server/python-uv.git /workspace && cd /workspace && git rev-parse HEAD
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: build
+          image: zeta/python-uv:0.1
+          imagePullPolicy: IfNotPresent
+          workingDir: /workspace
+          command:
+            - sh
+            - -lc
+          args:
+            - |
+              set -eux
+              export UV_CACHE_DIR=/cache/uv
+              uv sync --frozen
+              uv run python -m hello_uv
+              uv build --no-build-isolation --out-dir /artifacts/python
+              rm -f /artifacts/python/.gitignore
+              du -sh /cache/uv
+              find /artifacts/python -type f -maxdepth 2 -print
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+              ephemeral-storage: 2Gi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: artifacts
+              mountPath: /artifacts
+            - name: cache
+              mountPath: /cache
+      volumes:
+        - name: workspace
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: zeta-poc-artifacts
+        - name: cache
+          persistentVolumeClaim:
+            claimName: zeta-poc-cache

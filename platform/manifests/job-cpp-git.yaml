@@ -1,0 +1,89 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: poc-cpp-git
+  namespace: zeta-poc
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: poc-cpp-git
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: context
+          image: zeta/git-server:0.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - git config --global --add safe.directory /workspace && git clone --depth=1 git://git-server/cpp.git /workspace && cd /workspace && git rev-parse HEAD
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: build
+          image: zeta/cpp:0.1
+          imagePullPolicy: IfNotPresent
+          workingDir: /workspace
+          command:
+            - sh
+            - -lc
+          args:
+            - |
+              set -eux
+              export CCACHE_DIR=/cache/ccache
+              export CCACHE_MAXSIZE=2G
+              export CCACHE_BASEDIR=/workspace
+              cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+                -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+              cmake --build build
+              ccache -s
+              cmake --install build --prefix /artifacts/cpp
+              find /artifacts/cpp -type f -maxdepth 3 -print
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 200m
+              memory: 256Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+              ephemeral-storage: 2Gi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: artifacts
+              mountPath: /artifacts
+            - name: cache
+              mountPath: /cache
+      volumes:
+        - name: workspace
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: zeta-poc-artifacts
+        - name: cache
+          persistentVolumeClaim:
+            claimName: zeta-poc-cache

@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zeta</title>
+  <script>
+    (function () {
+      var saved = localStorage.getItem("zeta-theme");
+      var theme = saved || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.dataset.theme = theme;
+    })();
+  </script>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="logo"></span> Zeta</div>
+    <div class="topbar-right">
+      <span id="who" class="who"></span>
+      <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme">
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+        </svg>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+        </svg>
+      </button>
+      <button id="logout" class="ghost" hidden>Sign out</button>
+    </div>
+  </header>
+
+  <main class="page">
+    <section id="login-view" class="login-card" hidden>
+      <h1>Build portal</h1>
+      <p class="muted">Run builds from your repository with the CLI, then follow them here. No user kubeconfig required.</p>
+      <a class="button" href="/login">Sign in</a>
+    </section>
+
+    <section id="app-view" hidden>
+      <div class="summary" id="summary"></div>
+
+      <div class="charts">
+        <section class="panel chart-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Build duration</h2>
+              <p class="muted small">Latest completed builds</p>
+            </div>
+          </div>
+          <div id="duration-chart" class="chart"></div>
+        </section>
+        <section class="panel chart-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Cache hit</h2>
+              <p class="muted small">Rate per successful build</p>
+            </div>
+          </div>
+          <div id="cache-chart" class="chart"></div>
+        </section>
+      </div>
+
+      <section class="panel volumes-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Volumes</h2>
+            <p class="muted small">Capacity, quota, last use and actions</p>
+          </div>
+          <div class="row-actions">
+            <span id="volume-quota" class="muted small"></span>
+            <button id="volumes-refresh" class="ghost small">Refresh</button>
+          </div>
+        </div>
+        <div id="volume-quota-bar" class="quota-bar" hidden><span></span></div>
+        <p id="volume-error" class="error small" hidden></p>
+        <div class="table-wrap">
+          <table class="build-table volume-table">
+            <thead>
+              <tr>
+                <th>Volume</th>
+                <th>Role</th>
+                <th>Size</th>
+                <th>Last used</th>
+                <th>Build</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="volumes-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div class="dashboard">
+        <section class="panel cli-panel">
+          <div class="panel-head">
+            <div>
+              <h2>Start a build</h2>
+              <p class="muted small">From your repository, not this page</p>
+            </div>
+          </div>
+          <pre class="cli">zeta login --server http://zeta.local
+cd mon-projet
+zeta build</pre>
+          <p class="muted small">Live logs, cache and artifacts extracted into <code>artifacts/&lt;id&gt;</code>.</p>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div>
+              <h2>Recent builds</h2>
+              <p class="muted small">Status, duration and cache</p>
+            </div>
+            <div class="row-actions">
+              <span id="last-refresh" class="muted small"></span>
+              <button id="refresh" class="ghost small">Refresh</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="build-table">
+              <thead>
+                <tr>
+                  <th>Build</th>
+                  <th>Repository</th>
+                  <th>Status</th>
+                  <th>Duration</th>
+                  <th>Cache</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="builds-body"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <dialog id="resize-dialog">
+    <form id="resize-form" class="resize-form">
+      <div class="dialog-head">
+        <h2>Expand <span id="resize-name" class="mono"></span></h2>
+        <button id="resize-close" class="ghost small" type="button">Close</button>
+      </div>
+      <div class="dialog-body">
+        <p class="muted small">Current size: <b id="resize-current"></b></p>
+        <label>Requested size
+          <input id="resize-size" name="size" placeholder="5Gi" autocomplete="off" required>
+        </label>
+        <p class="muted small">Use Kubernetes suffixes: Mi, Gi, Ti. Expansion depends on the StorageClass.</p>
+        <p id="resize-error" class="error small" hidden></p>
+        <div class="row-actions">
+          <button id="resize-cancel" class="ghost" type="button">Cancel</button>
+          <button id="resize-submit" type="submit">Expand</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="logs-dialog">
+    <div class="dialog-head">
+      <h2 id="logs-title">Logs</h2>
+      <button id="logs-close" class="ghost small">Close</button>
+    </div>
+    <pre id="logs"></pre>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>

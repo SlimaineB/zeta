@@ -1,0 +1,9 @@
+name: go
+profile: go
+image: zeta/go:0.1
+context: .
+size: 5Gi
+exclude:
+  - artifacts
+env:
+  GOFLAGS: -mod=mod

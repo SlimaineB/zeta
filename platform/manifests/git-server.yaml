@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zeta-poc-git
+  namespace: zeta-poc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: local-path
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: git-server
+  namespace: zeta-poc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: git-server
+  template:
+    metadata:
+      labels:
+        app: git-server
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: init-repos
+          image: zeta/git-server:0.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              mkdir -p /srv/git
+              for repo in cpp python-uv go; do
+                if [ ! -d "/srv/git/$repo.git" ]; then
+                  git init --bare --initial-branch=main "/srv/git/$repo.git"
+                fi
+                git --git-dir="/srv/git/$repo.git" symbolic-ref HEAD refs/heads/main
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: git
+              mountPath: /srv/git
+      containers:
+        - name: git-daemon
+          image: zeta/git-server:0.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - git
+            - daemon
+            - --base-path=/srv/git
+            - --export-all
+            - --reuseaddr
+            - --informative-errors
+            - --verbose
+            - --enable=receive-pack
+          ports:
+            - name: git
+              containerPort: 9418
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: git
+              mountPath: /srv/git
+      volumes:
+        - name: git
+          persistentVolumeClaim:
+            claimName: zeta-poc-git
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: git-server
+  namespace: zeta-poc
+spec:
+  selector:
+    app: git-server
+  ports:
+    - name: git
+      port: 9418
+      targetPort: 9418

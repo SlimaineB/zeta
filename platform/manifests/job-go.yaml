@@ -1,0 +1,94 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: poc-go
+  namespace: zeta-poc
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 0
+  template:
+    metadata:
+      labels:
+        app: poc-go
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      initContainers:
+        - name: context
+          image: busybox:1.36
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -c
+            - tar -xzf /context/context.tar.gz -C /workspace && ls -la /workspace
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: context
+              mountPath: /context
+              readOnly: true
+            - name: workspace
+              mountPath: /workspace
+      containers:
+        - name: build
+          image: zeta/go:0.1
+          imagePullPolicy: IfNotPresent
+          workingDir: /workspace
+          command:
+            - sh
+            - -c
+          args:
+            - |
+              set -eux
+              mkdir -p /artifacts/go /cache/go-build /cache/go-mod
+              go mod download
+              go test ./...
+              if [ -d ./cmd ]; then
+                go build -trimpath -o /artifacts/go/ ./cmd/...
+              else
+                go build -trimpath -o /artifacts/go/app .
+              fi
+              find /artifacts/go -type f -maxdepth 2 -print
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 300m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+              ephemeral-storage: 2Gi
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+            - name: artifacts
+              mountPath: /artifacts
+            - name: cache
+              mountPath: /cache
+      volumes:
+        - name: context
+          configMap:
+            name: ctx-go
+        - name: workspace
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: zeta-poc-artifacts
+        - name: cache
+          persistentVolumeClaim:
+            claimName: zeta-poc-cache
