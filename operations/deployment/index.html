@@ -13,7 +13,7 @@
         <link rel="canonical" href="https://slimaineb.github.io/zeta/operations/deployment/">
       
       
-        <link rel="prev" href="../../reference/architecture/">
+        <link rel="prev" href="../../platform/helm-chart/">
       
       
         <link rel="next" href="../security/">
@@ -242,17 +242,19 @@
   
   
   
+    
+  
   
     
     
-      <li class="md-tabs__item">
-        <a href="../../getting-started/installation/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../../platform/" class="md-tabs__link">
           
   
   
     
   
-  Getting started
+  Platform
 
         </a>
       </li>
@@ -268,13 +270,13 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../user-guide/cli/" class="md-tabs__link">
+        <a href="../../developer/" class="md-tabs__link">
           
   
   
     
   
-  User guide
+  Developer
 
         </a>
       </li>
@@ -297,30 +299,6 @@
     
   
   Reference
-
-        </a>
-      </li>
-    
-  
-
-      
-        
-  
-  
-  
-    
-  
-  
-    
-    
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
-          
-  
-  
-    
-  
-  Operations
 
         </a>
       </li>
@@ -426,10 +404,504 @@
       
   
   
+    
+  
   
   
     
     
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        
+          
+          <div class="md-nav__link md-nav__container">
+            <a href="../../platform/" class="md-nav__link ">
+              
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Platform
+  
+
+    
+  </span>
+  
+  
+
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_2" id="__nav_2_label" tabindex="">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Platform
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../platform/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Install the platform
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../platform/helm-chart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Helm chart
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and operations
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Deployment and operations
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#update-the-platform-with-helm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Update the platform with Helm
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploy from source
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#build-and-import-images" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Build and import images
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install-or-update-the-cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install or update the CLI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release pipeline
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#status" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Status
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#logs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#restart-k3s-under-wsl" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Restart k3s under WSL
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#clean-up-builds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Clean up builds
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reset-the-cache" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reset the cache
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reset-artifacts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reset artifacts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reset-an-environment" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reset an environment
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#uninstall" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Uninstall
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#health-check" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Health check
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#publish-the-documentation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Publish the documentation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Publish the documentation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#github-pages" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        GitHub Pages
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#upgrade-checklist" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Upgrade checklist
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#backup-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Backup notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../troubleshooting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Troubleshooting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+      
+        
+          
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+        
       
         
       
@@ -450,17 +922,18 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_2" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
-            
+          <div class="md-nav__link md-nav__container">
+            <a href="../../developer/" class="md-nav__link ">
+              
   
   
   <span class="md-ellipsis">
     
   
-    Getting started
+    Developer
   
 
     
@@ -468,19 +941,27 @@
   
   
 
-            <span class="md-nav__icon md-icon"></span>
-          </label>
+            </a>
+            
+              
+              <label class="md-nav__link " for="__nav_3" id="__nav_3_label" tabindex="0">
+                <span class="md-nav__icon md-icon"></span>
+              </label>
+            
+          </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_2">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
   
-    Getting started
+    Developer
   
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
             
               
                 
@@ -489,14 +970,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../getting-started/installation/" class="md-nav__link">
+      <a href="../../developer/installation/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Installation
+    Install the CLI
   
 
     
@@ -537,79 +1018,6 @@
   
 
               
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
-      
-        
-        
-          
-        
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
-        
-          
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    User guide
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_3">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    User guide
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
             
               
                 
@@ -945,391 +1353,6 @@
       
   
   
-    
-  
-  
-  
-    
-    
-      
-        
-      
-        
-      
-        
-      
-    
-    
-    
-      
-        
-        
-      
-      
-        
-      
-    
-    
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
-      
-        
-        
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
-        
-          
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
-            
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Operations
-  
-
-    
-  </span>
-  
-  
-
-            <span class="md-nav__icon md-icon"></span>
-          </label>
-        
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
-          <label class="md-nav__title" for="__nav_5">
-            <span class="md-nav__icon md-icon"></span>
-            
-  
-    Operations
-  
-
-          </label>
-          <ul class="md-nav__list" data-md-scrollfix>
-            
-              
-                
-  
-  
-    
-  
-  
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deployment and operations
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Deployment and operations
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#deploy-or-update-the-portal" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Deploy or update the portal
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#build-and-import-images" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Build and import images
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#install-or-update-the-cli" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Install or update the CLI
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#status" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Status
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#logs" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Logs
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#restart-k3s-under-wsl" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Restart k3s under WSL
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#clean-up-builds" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Clean up builds
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reset-the-cache" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reset the cache
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reset-artifacts" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reset artifacts
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#reset-an-environment" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Reset an environment
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#uninstall" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Uninstall
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#health-check" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Health check
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#publish-the-documentation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Publish the documentation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Publish the documentation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#github-pages" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        GitHub Pages
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#upgrade-checklist" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Upgrade checklist
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#backup-notes" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Backup notes
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../security/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Security
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../troubleshooting/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Troubleshooting
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-          </ul>
-        </nav>
-      
-    </li>
-  
-
-    
-      
-      
-  
-  
   
   
     
@@ -1354,10 +1377,10 @@
         
           
         
-        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
             
   
   
@@ -1375,8 +1398,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -1476,10 +1499,21 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#deploy-or-update-the-portal" class="md-nav__link">
+  <a href="#update-the-platform-with-helm" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Deploy or update the portal
+        Update the platform with Helm
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#deploy-from-source" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Deploy from source
       
     </span>
   </a>
@@ -1502,6 +1536,17 @@
     <span class="md-ellipsis">
       
         Install or update the CLI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#release-pipeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release pipeline
       
     </span>
   </a>
@@ -1678,65 +1723,105 @@
 
 
 <h1 id="deployment-and-operations">Deployment and operations<a class="headerlink" href="#deployment-and-operations" title="Permanent link">&para;</a></h1>
-<p>This page covers day-two operations: deploying updates, inspecting state,
-cleaning up, and publishing the documentation.</p>
-<h2 id="deploy-or-update-the-portal">Deploy or update the portal<a class="headerlink" href="#deploy-or-update-the-portal" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">cd</span><span class="w"> </span>portal
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>make<span class="w"> </span><span class="nb">test</span>
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>make<span class="w"> </span>deploy
+<p>This page covers day-two operations: upgrades, logs, cleanup, releases, and
+documentation publishing.</p>
+<h2 id="update-the-platform-with-helm">Update the platform with Helm<a class="headerlink" href="#update-the-platform-with-helm" title="Permanent link">&para;</a></h2>
+<p>The recommended upgrade path is the published chart:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>helm<span class="w"> </span>upgrade<span class="w"> </span>--install<span class="w"> </span>zeta<span class="w"> </span>oci://ghcr.io/slimaineb/charts/zeta<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span>--version<span class="w"> </span><span class="m">0</span>.2.0<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="w">  </span>--namespace<span class="w"> </span>zeta-poc<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="w">  </span>--reuse-values
 </code></pre></div>
-<p><code>make deploy</code>:</p>
-<ul>
-<li>compiles <code>portal/bin/zeta</code>;</li>
-<li>builds the <code>zeta/portal:0.1</code> image, including <code>syncd</code>;</li>
-<li>imports it into k3s;</li>
-<li>applies <code>platform/manifests/portal.yaml</code>;</li>
-<li>restarts the Deployment and waits for rollout.</li>
-</ul>
-<p>From the repository root, <code>make install-platform</code> rebuilds the images and
-reapplies everything.</p>
+<p>Review the new defaults before upgrading:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>helm<span class="w"> </span>show<span class="w"> </span>values<span class="w"> </span>oci://ghcr.io/slimaineb/charts/zeta<span class="w"> </span>--version<span class="w"> </span><span class="m">0</span>.2.0
+</code></pre></div>
+<p><code>--reuse-values</code> keeps your previous overrides. The chart updates the portal,
+RBAC, and optional Git server; shared PVCs are preserved. The portal image and
+helper images (context init, <code>syncd</code>, Git server) use the chart version by
+default.</p>
+<p>See the <a href="../../platform/helm-chart/">Helm chart reference</a> for values and
+examples.</p>
+<h2 id="deploy-from-source">Deploy from source<a class="headerlink" href="#deploy-from-source" title="Permanent link">&para;</a></h2>
+<p>On a local k3s cluster, build the images and install the local chart:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>./scripts/install.sh
+</code></pre></div>
+<p>Or use the Make target:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>make<span class="w"> </span>install-smart
+</code></pre></div>
+<p>The raw manifest path remains available for development:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>portal
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>make<span class="w"> </span><span class="nb">test</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>make<span class="w"> </span>deploy
+</code></pre></div>
+<p><code>make deploy</code> compiles the portal, builds <code>zeta/portal:0.1</code>, imports it into
+k3s, applies <code>platform/manifests/portal.yaml</code>, and waits for the rollout. From
+the repository root, <code>make install-platform</code> rebuilds the images and reapplies
+the raw manifests.</p>
 <h2 id="build-and-import-images">Build and import images<a class="headerlink" href="#build-and-import-images" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nb">cd</span><span class="w"> </span>platform
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>make<span class="w"> </span>images
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nb">cd</span><span class="w"> </span>platform
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>make<span class="w"> </span>images
 </code></pre></div>
 <p>This builds the language images and the Git server image, then imports them into
 k3s containerd. To re-import a single image:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>docker<span class="w"> </span>save<span class="w"> </span>zeta/go:0.1<span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>-n<span class="w"> </span>k3s<span class="w"> </span>ctr<span class="w"> </span>images<span class="w"> </span>import<span class="w"> </span>-
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>docker<span class="w"> </span>save<span class="w"> </span>zeta/go:0.1<span class="w"> </span><span class="p">|</span><span class="w"> </span>sudo<span class="w"> </span>-n<span class="w"> </span>k3s<span class="w"> </span>ctr<span class="w"> </span>images<span class="w"> </span>import<span class="w"> </span>-
 </code></pre></div>
 <h2 id="install-or-update-the-cli">Install or update the CLI<a class="headerlink" href="#install-or-update-the-cli" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>make<span class="w"> </span>install-user
+<p>Users should install the release binary:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>curl<span class="w"> </span>-fsSL<span class="w"> </span>https://raw.githubusercontent.com/SlimaineB/zeta/main/scripts/install-cli.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
+</code></pre></div>
+<p>On Windows:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">irm </span><span class="n">https</span><span class="p">://</span><span class="n">raw</span><span class="p">.</span><span class="n">githubusercontent</span><span class="p">.</span><span class="n">com</span><span class="p">/</span><span class="n">SlimaineB</span><span class="p">/</span><span class="n">zeta</span><span class="p">/</span><span class="n">main</span><span class="p">/</span><span class="n">scripts</span><span class="p">/</span><span class="nb">install-cli</span><span class="p">.</span><span class="n">ps1</span> <span class="p">|</span> <span class="nb">iex</span>
+</code></pre></div>
+<p>For a source build:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>make<span class="w"> </span>install-user
 </code></pre></div>
 <p>Or manually:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="nb">cd</span><span class="w"> </span>cli
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>make<span class="w"> </span>build
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>sudo<span class="w"> </span>install<span class="w"> </span>-m<span class="w"> </span><span class="m">0755</span><span class="w"> </span>bin/zeta<span class="w"> </span>/usr/local/bin/zeta
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nb">cd</span><span class="w"> </span>cli
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>make<span class="w"> </span>build
+<a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>sudo<span class="w"> </span>install<span class="w"> </span>-m<span class="w"> </span><span class="m">0755</span><span class="w"> </span>bin/zeta<span class="w"> </span>/usr/local/bin/zeta
 </code></pre></div>
+<p>See <a href="../../developer/installation/">Install the CLI</a>.</p>
+<h2 id="release-pipeline">Release pipeline<a class="headerlink" href="#release-pipeline" title="Permanent link">&para;</a></h2>
+<p>The <a href="https://github.com/SlimaineB/zeta/blob/main/.github/workflows/release.yml">release workflow</a>
+runs on <code>v*</code> tags. For <code>v0.1.0</code> it publishes:</p>
+<ul>
+<li>images <code>ghcr.io/&lt;owner&gt;/zeta/{portal,cpp,go,python-uv,git-server}:0.1.0</code>
+  and <code>:latest</code>;</li>
+<li>CLI assets <code>zeta-{linux,darwin,windows}-{amd64,arm64}</code>;</li>
+<li>the Helm chart at <code>oci://ghcr.io/&lt;owner&gt;/charts/zeta:0.1.0</code>;</li>
+<li>a GitHub Release with the binaries, chart, and <code>checksums.txt</code>.</li>
+</ul>
+<p>The chart package is patched with the release registry, so a plain
+<code>helm install</code> uses the published images. The workflow also attempts to make the
+GHCR packages public. If a package stays private, follow the
+<a href="../../platform/installation/#private-registry">private registry</a> steps.</p>
 <h2 id="status">Status<a class="headerlink" href="#status" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>make<span class="w"> </span>status
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>make<span class="w"> </span>status
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>helm<span class="w"> </span>status<span class="w"> </span>zeta<span class="w"> </span>-n<span class="w"> </span>zeta-poc
 </code></pre></div>
 <p>Useful checks:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>deploy,svc,ingress,pods,pvc
-<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span><span class="nb">jobs</span>
-<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>events<span class="w"> </span>--sort-by<span class="o">=</span>.lastTimestamp
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>deploy,svc,ingress,pods,pvc
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span><span class="nb">jobs</span>
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>events<span class="w"> </span>--sort-by<span class="o">=</span>.lastTimestamp
 </code></pre></div>
 <h2 id="logs">Logs<a class="headerlink" href="#logs" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-portal<span class="w"> </span>-f
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-portal<span class="w"> </span>-f
 </code></pre></div>
 <p>Or:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nb">cd</span><span class="w"> </span>portal
-<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>make<span class="w"> </span>logs
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="nb">cd</span><span class="w"> </span>portal
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>make<span class="w"> </span>logs
 </code></pre></div>
 <p>Environment sync logs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>syncd
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>syncd
 </code></pre></div>
 <h2 id="restart-k3s-under-wsl">Restart k3s under WSL<a class="headerlink" href="#restart-k3s-under-wsl" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>sudo<span class="w"> </span>-n<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s1">'nohup k3s server &gt;/tmp/k3s-server.log 2&gt;&amp;1 &amp;'</span>
-<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>get<span class="w"> </span>nodes
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>sudo<span class="w"> </span>-n<span class="w"> </span>bash<span class="w"> </span>-c<span class="w"> </span><span class="s1">'nohup k3s server &gt;/tmp/k3s-server.log 2&gt;&amp;1 &amp;'</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>get<span class="w"> </span>nodes
 </code></pre></div>
 <h2 id="clean-up-builds">Clean up builds<a class="headerlink" href="#clean-up-builds" title="Permanent link">&para;</a></h2>
 <p>Jobs have a 1-hour TTL. Manual deletion:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>delete<span class="w"> </span>job<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span>-l<span class="w"> </span>zeta.io/managed-by<span class="o">=</span>portal
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>delete<span class="w"> </span>job<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="w">  </span>-l<span class="w"> </span>zeta.io/managed-by<span class="o">=</span>portal
 </code></pre></div>
 <h2 id="reset-the-cache">Reset the cache<a class="headerlink" href="#reset-the-cache" title="Permanent link">&para;</a></h2>
 <div class="admonition warning">
@@ -1744,65 +1829,77 @@ k3s containerd. To re-import a single image:</p>
 <p>This removes <code>ccache</code>, <code>uv</code>, and Go caches for every build using the shared
 PVC.</p>
 </div>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>zeta<span class="w"> </span>volumes<span class="w"> </span>--role<span class="w"> </span>cache
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>delete<span class="w"> </span>job<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span>-l<span class="w"> </span>zeta.io/managed-by<span class="o">=</span>portal<span class="w"> </span>--ignore-not-found
-<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>zeta-poc-cache
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>zeta<span class="w"> </span>volumes<span class="w"> </span>--role<span class="w"> </span>cache
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>delete<span class="w"> </span>job<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">  </span>-l<span class="w"> </span>zeta.io/managed-by<span class="o">=</span>portal<span class="w"> </span>--ignore-not-found
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>zeta-poc-cache
 </code></pre></div>
 <p>The PVC is recreated on the next build. Profiles with a dedicated <code>cachePVC</code>
 keep their own volume.</p>
 <h2 id="reset-artifacts">Reset artifacts<a class="headerlink" href="#reset-artifacts" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>zeta<span class="w"> </span>volumes<span class="w"> </span>--role<span class="w"> </span>artifacts
-<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>zeta-poc-artifacts
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>zeta<span class="w"> </span>volumes<span class="w"> </span>--role<span class="w"> </span>artifacts
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>delete<span class="w"> </span>pvc<span class="w"> </span>zeta-poc-artifacts
 </code></pre></div>
 <p>The shared PVC is recreated on the next build.</p>
 <h2 id="reset-an-environment">Reset an environment<a class="headerlink" href="#reset-an-environment" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>zeta<span class="w"> </span>deactivate<span class="w"> </span>--name<span class="w"> </span>dev<span class="w">      </span><span class="c1"># keep the workspace</span>
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>zeta<span class="w"> </span>rm<span class="w"> </span>dev<span class="w">                     </span><span class="c1"># delete the workspace and secret</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>zeta<span class="w"> </span>deactivate<span class="w"> </span>--name<span class="w"> </span>dev<span class="w">      </span><span class="c1"># keep the workspace</span>
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a>zeta<span class="w"> </span>rm<span class="w"> </span>dev<span class="w">                     </span><span class="c1"># delete the workspace and secret</span>
 </code></pre></div>
 <p>If <code>rm</code> reports that the volume is still terminating, wait for the finalizer and
 retry.</p>
 <h2 id="uninstall">Uninstall<a class="headerlink" href="#uninstall" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>make<span class="w"> </span>uninstall-platform
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>helm<span class="w"> </span>uninstall<span class="w"> </span>zeta<span class="w"> </span>-n<span class="w"> </span>zeta-poc
+</code></pre></div>
+<p>The shared PVCs have <code>helm.sh/resource-policy: keep</code>, so Helm leaves the cache,
+artifacts, and environment workspaces in place. To remove everything:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>kubectl<span class="w"> </span>delete<span class="w"> </span>namespace<span class="w"> </span>zeta-poc
+</code></pre></div>
+<p>For a raw installation:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>make<span class="w"> </span>uninstall-platform
 </code></pre></div>
 <p>This deletes the <code>zeta-poc</code> namespace: portal, Git server, Jobs, PVCs, and
 environment workspaces. Imported images remain in containerd.</p>
 <h2 id="health-check">Health check<a class="headerlink" href="#health-check" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>curl<span class="w"> </span>-fsS<span class="w"> </span>http://zeta.local/healthz
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>curl<span class="w"> </span>-fsS<span class="w"> </span>http://zeta.local/healthz
 </code></pre></div>
 <h2 id="publish-the-documentation">Publish the documentation<a class="headerlink" href="#publish-the-documentation" title="Permanent link">&para;</a></h2>
 <p>The MkDocs site is built from <code>docs/</code> with Material for MkDocs.</p>
 <p>Local preview:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv-docs
-<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>.<span class="w"> </span>.venv-docs/bin/activate
-<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-docs.txt
-<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>mkdocs<span class="w"> </span>serve
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a>python3<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv-docs
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>.<span class="w"> </span>.venv-docs/bin/activate
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a>pip<span class="w"> </span>install<span class="w"> </span>-r<span class="w"> </span>requirements-docs.txt
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a>mkdocs<span class="w"> </span>serve
 </code></pre></div>
 <p>Open <a href="http://127.0.0.1:8000">http://127.0.0.1:8000</a>.</p>
 <p>Build only:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a>mkdocs<span class="w"> </span>build<span class="w"> </span>--strict
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a>mkdocs<span class="w"> </span>build<span class="w"> </span>--strict
 </code></pre></div>
 <h3 id="github-pages">GitHub Pages<a class="headerlink" href="#github-pages" title="Permanent link">&para;</a></h3>
 <p>The workflow <code>.github/workflows/docs.yml</code> runs on every push to <code>main</code> that
 changes <code>docs/</code>, <code>mkdocs.yml</code>, or <code>requirements-docs.txt</code>. It installs
 <code>requirements-docs.txt</code> and runs:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>mkdocs<span class="w"> </span>gh-deploy<span class="w"> </span>--force
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a>mkdocs<span class="w"> </span>gh-deploy<span class="w"> </span>--force
 </code></pre></div>
-<p>This publishes to the <code>gh-pages</code> branch. In the GitHub repository:</p>
+<p>This publishes to the <code>gh-pages</code> branch. The repository Pages source is:</p>
+<ul>
+<li>branch <code>gh-pages</code>;</li>
+<li>folder <code>/ (root)</code>.</li>
+</ul>
+<p>The site is available at <a href="https://slimaineb.github.io/zeta/">https://slimaineb.github.io/zeta/</a>.</p>
+<p>If the URL returns a GitHub Pages 404:</p>
 <ol>
 <li>open <strong>Settings → Pages</strong>;</li>
 <li>set <strong>Source</strong> to <strong>Deploy from a branch</strong>;</li>
-<li>choose the <code>gh-pages</code> branch and the <code>/ (root)</code> folder;</li>
-<li>save.</li>
+<li>choose <code>gh-pages</code> and <code>/ (root)</code>;</li>
+<li>save, then wait for the Pages build to finish.</li>
 </ol>
-<p>The site is then available at <code>https://slimaineb.github.io/zeta/</code>.</p>
-<p>You can also trigger the workflow manually from the <strong>Actions</strong> tab.</p>
+<p>You can also trigger the docs workflow manually from the <strong>Actions</strong> tab.</p>
 <h2 id="upgrade-checklist">Upgrade checklist<a class="headerlink" href="#upgrade-checklist" title="Permanent link">&para;</a></h2>
 <ol>
-<li><code>git pull</code>.</li>
-<li><code>make doctor</code>.</li>
-<li><code>make install-platform</code> (images and portal).</li>
-<li><code>make install-user</code> (CLI).</li>
+<li>Review the release notes and <code>helm show values</code>.</li>
+<li>Back up any data you cannot recreate.</li>
+<li><code>helm upgrade --install zeta ... --reuse-values</code>.</li>
+<li>Update the CLI with the install script.</li>
 <li><code>zeta login</code>.</li>
 <li>Run a smoke build and <code>zeta ls</code>.</li>
 </ol>
@@ -1812,7 +1909,8 @@ changes <code>docs/</code>, <code>mkdocs.yml</code>, or <code>requirements-docs.
   portal.</li>
 <li>Back up environment workspaces from inside the pod, or snapshot the underlying
   storage.</li>
-<li>Configuration lives in <code>platform/manifests/portal.yaml</code> and the profiles YAML.</li>
+<li>Helm configuration lives in your values file or <code>--set</code> overrides. Raw
+  configuration lives in <code>platform/manifests/portal.yaml</code> and the profiles YAML.</li>
 </ul>
 
 
@@ -1890,6 +1988,8 @@ changes <code>docs/</code>, <code>mkdocs.yml</code>, or <code>requirements-docs.
     
     
       <script src="../../assets/javascripts/bundle.a5f9d56c.min.js"></script>
+      
+        <script src="https://unpkg.com/mermaid@11/dist/mermaid.min.js"></script>
       
     
   </body>
