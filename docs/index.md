@@ -146,8 +146,8 @@ zeta CLI  <--- WebSocket --->  portal sync hub  <--- WebSocket --->  syncd
 
 ## Project status
 
-Zeta is a working proof of concept validated on a single-node k3s cluster
-(WSL2). The following are implemented and tested:
+Zeta is under active development and is validated on a single-node k3s
+cluster (WSL2). The following are implemented and tested:
 
 - local and Git builds, C++/Python/Go profiles, persistent caches;
 - artifacts, metrics, web dashboard, and HTTP API;

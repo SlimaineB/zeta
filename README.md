@@ -1427,7 +1427,7 @@ kubectl --context local -n zeta-poc get pvc
 kubectl --context local get storageclass
 ```
 
-The POC uses `local-path`.
+The reference k3s setup uses `local-path`.
 
 ### `PodInitializing` in logs
 
@@ -1491,7 +1491,7 @@ Current limitations:
 - No private SSH repository support; use HTTPS tokens.
 - Artifacts are stored per language path, not per build. A newer build of the
   same profile can overwrite the previous artifact directory.
-- No S3/MinIO backend; PVCs use `local-path` on the POC cluster.
+- No S3/MinIO backend; PVCs use `local-path` on the reference single-node cluster.
 - No automatic volume garbage collection. `zeta volumes --older-than` only reports
   candidates; deletion is manual from the CLI or UI.
 - Volume expansion requires a StorageClass with `allowVolumeExpansion: true`.
@@ -1557,7 +1557,7 @@ make helm-template
 make helm-package
 ```
 
-POC targets:
+Development targets:
 
 ```bash
 cd platform

@@ -92,7 +92,7 @@ Use Kubernetes Secrets, not literals in profiles, for credentials.
 - No per-group RBAC or strong multi-tenant isolation.
 - No private SSH repository support; use HTTPS tokens.
 - Artifacts are stored per language path, not per build.
-- No S3/MinIO backend; PVCs use `local-path` on the POC cluster.
+- No S3/MinIO backend; PVCs use `local-path` on the reference single-node cluster.
 - No automatic volume garbage collection.
 - Volume expansion requires a StorageClass with `allowVolumeExpansion: true`.
 - Jobs and artifacts expire after one hour by default.

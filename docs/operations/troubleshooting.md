@@ -103,7 +103,7 @@ kubectl --context local get storageclass
 kubectl --context local -n zeta-poc describe pod <pod>
 ```
 
-The POC uses `local-path`.
+The reference k3s setup uses `local-path`.
 
 ### `PodInitializing` in logs
 
