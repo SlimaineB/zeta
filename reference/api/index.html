@@ -2304,6 +2304,8 @@ StorageClass is chosen by the platform (<code>--storage-class</code> /
 </code></pre></div>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="p">{</span><span class="nt">"id"</span><span class="p">:</span><span class="s2">"dev"</span><span class="p">,</span><span class="nt">"active"</span><span class="p">:</span><span class="kc">true</span><span class="p">}</span>
 </code></pre></div>
+<p>If the environment does not exist, the portal returns <code>404</code> with
+<code>environment &lt;id&gt; not found; run 'zeta init' first</code>.</p>
 <h3 id="deactivate">Deactivate<a class="headerlink" href="#deactivate" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="err">POST /api/envs/{id}/deactivate</span>
 </code></pre></div>

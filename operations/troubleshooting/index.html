@@ -894,6 +894,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#activate-environment-id-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        activate: environment &lt;id&gt; not found
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#zeta-activate-hangs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1882,6 +1893,17 @@
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
+  <a href="#activate-environment-id-not-found" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        activate: environment &lt;id&gt; not found
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#zeta-activate-hangs" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2116,6 +2138,9 @@ corruption. Check the portal logs and the Job status:</p>
 <a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>zeta<span class="w"> </span>status<span class="w"> </span>&lt;id&gt;
 </code></pre></div>
 <h2 id="environments">Environments<a class="headerlink" href="#environments" title="Permanent link">&para;</a></h2>
+<h3 id="activate-environment-id-not-found"><code>activate: environment &lt;id&gt; not found</code><a class="headerlink" href="#activate-environment-id-not-found" title="Permanent link">&para;</a></h3>
+<p><code>zeta activate</code> only starts an existing environment. Create it first with
+<code>zeta init</code>, then run <code>zeta activate</code> again.</p>
 <h3 id="zeta-activate-hangs"><code>zeta activate</code> hangs<a class="headerlink" href="#zeta-activate-hangs" title="Permanent link">&para;</a></h3>
 <p>Check the pod and the sync sidecar:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>pods
