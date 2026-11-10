@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"golang.org/x/net/websocket"
+	apierrs "k8s.io/apimachinery/pkg/api/errors"
 
 	"zeta/portal/internal/auth"
 	"zeta/portal/internal/builds"
@@ -364,6 +365,10 @@ func (s *Server) authorizeEnv(w http.ResponseWriter, r *http.Request, id string)
 	session, _ := auth.SessionFromContext(r.Context())
 	owner, err := s.builds.EnvironmentOwner(r.Context(), id)
 	if err != nil {
+		if apierrs.IsNotFound(err) {
+			writeError(w, http.StatusNotFound, fmt.Errorf("environment %s not found; run 'zeta init' first", id))
+			return false
+		}
 		writeError(w, http.StatusNotFound, err)
 		return false
 	}

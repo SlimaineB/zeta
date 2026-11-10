@@ -606,6 +606,9 @@ func cmdEnvActivate(args []string) {
 	}
 	id := envName(firstNonEmpty(*name, proj.Name), root)
 	if err := c.ActivateEnv(context.Background(), id); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") && !strings.Contains(err.Error(), "zeta init") {
+			fatalf("activate: environment %s not found; run 'zeta init' first", id)
+		}
 		fatalf("activate: %v", err)
 	}
 	syncURL, err := c.SyncURL(id)

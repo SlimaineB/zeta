@@ -155,6 +155,11 @@ zeta status <id>
 
 ## Environments
 
+### `activate: environment <id> not found`
+
+`zeta activate` only starts an existing environment. Create it first with
+`zeta init`, then run `zeta activate` again.
+
 ### `zeta activate` hangs
 
 Check the pod and the sync sidecar:

@@ -281,6 +281,9 @@ POST /api/envs/{id}/activate
 {"id":"dev","active":true}
 ```
 
+If the environment does not exist, the portal returns `404` with
+`environment <id> not found; run 'zeta init' first`.
+
 ### Deactivate
 
 ```http
