@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eu
 
 REPO="${ZETA_REPO:-SlimaineB/zeta}"
 VERSION="${ZETA_VERSION:-latest}"

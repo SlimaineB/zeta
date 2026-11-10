@@ -138,7 +138,7 @@ else
   TAG="${TAG:-0.1}"
 fi
 
-helm_args=(--kube-context "$CONTEXT" upgrade --install "$RELEASE" --namespace "$NAMESPACE" --create-namespace --wait --timeout 5m)
+helm_args=(--kube-context "$CONTEXT" upgrade --install "$RELEASE" --namespace "$NAMESPACE" --create-namespace)
 
 if [ "$FROM_REGISTRY" = "1" ]; then
   if [ -z "$REGISTRY" ]; then
