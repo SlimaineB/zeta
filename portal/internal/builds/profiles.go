@@ -111,6 +111,44 @@ func normalizeProfile(p domain.Profile) domain.Profile {
 	return p
 }
 
+func (r *Registry) ApplyImageOverrides(registry, tag string) {
+	registry = strings.TrimSuffix(strings.TrimSpace(registry), "/")
+	tag = strings.TrimSpace(tag)
+	if registry == "" && tag == "" {
+		return
+	}
+	for name, p := range r.profiles {
+		p.Image = rewriteImage(p.Image, registry, tag)
+		r.profiles[name] = p
+	}
+}
+
+func rewriteImage(image, registry, tag string) string {
+	image = strings.TrimSpace(image)
+	if image == "" {
+		return image
+	}
+	if registry != "" && !hasRegistry(image) {
+		image = registry + "/" + image
+	}
+	if tag == "" || strings.Contains(image, "@") {
+		return image
+	}
+	lastSlash := strings.LastIndex(image, "/")
+	if colon := strings.LastIndex(image, ":"); colon > lastSlash {
+		return image[:colon] + ":" + tag
+	}
+	return image + ":" + tag
+}
+
+func hasRegistry(image string) bool {
+	first := image
+	if slash := strings.Index(first, "/"); slash >= 0 {
+		first = first[:slash]
+	}
+	return strings.Contains(first, ".") || strings.Contains(first, ":") || first == "localhost"
+}
+
 func (r *Registry) Get(name string) (domain.Profile, bool) {
 	p, ok := r.profiles[name]
 	return p, ok

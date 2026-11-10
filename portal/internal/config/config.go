@@ -15,6 +15,8 @@ type Config struct {
 	KubeConfig       string
 	MasterURL        string
 	ProfilesFile     string
+	ImageRegistry    string
+	ImageTag         string
 	StorageClass     string
 	VolumeQuotaBytes int64
 	VolumeMaxBytes   int64
@@ -36,12 +38,14 @@ type AuthConfig struct {
 
 func Load(args []string) (Config, error) {
 	cfg := Config{
-		Addr:         env("ZETA_ADDR", ":8080"),
-		Namespace:    env("ZETA_NAMESPACE", "zeta-poc"),
-		KubeConfig:   env("ZETA_KUBECONFIG", ""),
-		MasterURL:    env("ZETA_MASTER", ""),
-		ProfilesFile: env("ZETA_PROFILES_FILE", ""),
-		StorageClass: env("ZETA_STORAGE_CLASS", "local-path"),
+		Addr:          env("ZETA_ADDR", ":8080"),
+		Namespace:     env("ZETA_NAMESPACE", "zeta-poc"),
+		KubeConfig:    env("ZETA_KUBECONFIG", ""),
+		MasterURL:     env("ZETA_MASTER", ""),
+		ProfilesFile:  env("ZETA_PROFILES_FILE", ""),
+		ImageRegistry: env("ZETA_IMAGE_REGISTRY", ""),
+		ImageTag:      env("ZETA_IMAGE_TAG", ""),
+		StorageClass:  env("ZETA_STORAGE_CLASS", "local-path"),
 		Auth: AuthConfig{
 			OIDCIssuer:       env("ZETA_OIDC_ISSUER", ""),
 			OIDCClientID:     env("ZETA_OIDC_CLIENT_ID", "zeta-portal"),
@@ -65,6 +69,8 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.KubeConfig, "kubeconfig", cfg.KubeConfig, "kubeconfig path (dev, empty = in-cluster)")
 	fs.StringVar(&cfg.MasterURL, "master", cfg.MasterURL, "Kubernetes master URL (overrides kubeconfig)")
 	fs.StringVar(&cfg.ProfilesFile, "profiles-file", cfg.ProfilesFile, "build profiles YAML file (optional)")
+	fs.StringVar(&cfg.ImageRegistry, "image-registry", cfg.ImageRegistry, "registry prefix for profile and helper images (e.g. ghcr.io/owner)")
+	fs.StringVar(&cfg.ImageTag, "image-tag", cfg.ImageTag, "tag override for profile and helper images")
 	fs.StringVar(&cfg.StorageClass, "storage-class", cfg.StorageClass, "StorageClass for shared PVCs")
 	fs.StringVar(&volumeQuota, "volume-quota", volumeQuota, "Zeta total volume quota")
 	fs.StringVar(&volumeMax, "volume-max", volumeMax, "maximum volume size in Zeta")

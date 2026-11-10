@@ -29,6 +29,26 @@ func TestShellQuote(t *testing.T) {
 	}
 }
 
+func TestHelperImage(t *testing.T) {
+	cases := []struct {
+		name     string
+		repo     Repository
+		image    string
+		tag      string
+		expected string
+	}{
+		{"defaults", Repository{}, "zeta/portal", "0.1", "zeta/portal:0.1"},
+		{"tag only", Repository{imageTag: "0.2"}, "zeta/portal", "0.1", "zeta/portal:0.2"},
+		{"registry and tag", Repository{imageRegistry: "ghcr.io/owner", imageTag: "0.1.0"}, "zeta/portal", "0.1", "ghcr.io/owner/zeta/portal:0.1.0"},
+		{"trailing slash", Repository{imageRegistry: "ghcr.io/owner/"}, "zeta/git-server", "0.1", "ghcr.io/owner/zeta/git-server:0.1"},
+	}
+	for _, tc := range cases {
+		if got := tc.repo.helperImage(tc.image, tc.tag); got != tc.expected {
+			t.Errorf("%s: helperImage() = %q, want %q", tc.name, got, tc.expected)
+		}
+	}
+}
+
 func TestProfileEnvSorted(t *testing.T) {
 	profile := domain.Profile{Env: map[string]string{"ZED": "1", "ALPHA": "2"}}
 	env := profileEnv(profile)

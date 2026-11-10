@@ -5,6 +5,41 @@ never compiles user code; it creates and observes Kubernetes workloads. Builds
 and environments run in isolated pods with their own volumes and security
 context.
 
+```mermaid
+flowchart LR
+  subgraph workstation["Developer workstation"]
+    CLI["zeta CLI"]
+  end
+
+  subgraph cluster["Kubernetes cluster (namespace zeta-poc)"]
+    Portal["Zeta portal"]
+    API["Kubernetes API"]
+    Job["Build Job<br/>ephemeral"]
+    Env["Environment Deployment<br/>replicas 0 or 1"]
+    Cache[("cache PVC")]
+    Artifacts[("artifacts PVC")]
+    Contexts[("contexts PVC")]
+    Workspace[("workspace PVC")]
+  end
+
+  CLI -->|"HTTP + session cookie"| Portal
+  Portal -->|"ServiceAccount + RBAC"| API
+  API -->|"create / watch"| Job
+  API -->|"create / scale"| Env
+  Job --> Cache
+  Job --> Artifacts
+  Job --> Contexts
+  Env --> Workspace
+  Env --> Cache
+  Portal -->|"logs, metrics, artifacts"| CLI
+  CLI <-->|"WebSocket sync"| Portal
+  Portal <-->|"WebSocket sync"| Env
+```
+
+The control plane is small and always available. The execution plane is
+short-lived: a build exists only for the duration of a Job, and an environment
+is scaled to zero when idle.
+
 ## Control plane vs execution plane
 
 | Layer | Runs where | Responsibility |
@@ -182,6 +217,28 @@ environment was removed but its volume is still terminating.
   the portal.
 - **Observable by default.** Logs, durations, cache metrics, and artifacts are
   exposed through the same API used by the CLI and dashboard.
+
+## Compute on demand
+
+One of the main goals of Zeta is to avoid keeping a powerful build machine
+running all the time. You do not need a high-end laptop, a dedicated build
+server, or a large always-on VM for every developer.
+
+Instead:
+
+- the control plane is a small portal Deployment that can run on an inexpensive
+  always-on node;
+- build compute is requested only while a build Job is running, then released;
+- CPU and memory limits are set per profile, so heavy C++ or Go builds do not
+  affect other workloads;
+- persistent environments are scaled to zero after
+  `--env-idle-timeout` (default `15m`) and resume from their workspace PVC;
+- caches survive between builds, so paying for compute on demand does not mean
+  rebuilding everything from scratch.
+
+The result is a shared build capacity model: expensive CPU and memory are
+consumed in bursts, when someone actually needs them, instead of being idle on
+a developer workstation all day.
 
 ## Failure and recovery
 

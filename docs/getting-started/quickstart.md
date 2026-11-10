@@ -1,7 +1,8 @@
 # First build
 
 This guide assumes the portal is already installed. If not, follow
-[Installation](installation.md).
+[Install the platform](../platform/installation.md) and
+[Install the CLI](../developer/installation.md).
 
 ## 1. Log in
 

@@ -1,0 +1,107 @@
+nameOverride: ""
+fullnameOverride: zeta-portal
+
+image:
+  registry: ""
+  repository: zeta/portal
+  tag: ""
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+
+serviceAccount:
+  create: true
+  name: ""
+
+portal:
+  replicaCount: 1
+  addr: ":8080"
+  storageClass: local-path
+  volumeQuota: 20Gi
+  volumeMax: 10Gi
+  envIdleTimeout: 15m
+  podAnnotations: {}
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 65532
+    runAsGroup: 65532
+    fsGroup: 65532
+    seccompProfile:
+      type: RuntimeDefault
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: ["ALL"]
+  extraArgs: []
+  extraEnv: []
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: traefik
+  host: zeta.local
+  annotations: {}
+  tls: []
+
+auth:
+  dev: true
+  sessionKey: ""
+  sessionTTL: 12h
+  secureCookie: false
+  existingSecret: ""
+  oidc:
+    issuer: ""
+    clientID: zeta-portal
+    clientSecret: ""
+    redirectURL: ""
+    scopes: "openid,profile,email,groups"
+
+persistence:
+  artifacts:
+    size: 1Gi
+    storageClass: ""
+  cache:
+    size: 2Gi
+    storageClass: ""
+  contexts:
+    size: 2Gi
+    storageClass: ""
+
+profiles:
+  inline: ""
+  existingConfigMap: ""
+
+gitServer:
+  enabled: false
+  image:
+    repository: zeta/git-server
+    tag: ""
+  service:
+    name: git-server
+    port: 9418
+  persistence:
+    claimName: zeta-poc-git
+    size: 1Gi
+    storageClass: ""
+  resources: {}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

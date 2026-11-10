@@ -9,6 +9,9 @@ to the CLI.
 The web UI is a monitoring dashboard, not a build form.
 
 > Full documentation: <https://slimaineb.github.io/zeta/> — sources in [`docs/`](docs/).
+>
+> - **Platform team:** [install the portal with Helm](docs/platform/installation.md).
+> - **Developers:** [install the CLI](docs/developer/installation.md) and run a first build.
 
 ## Table of contents
 
@@ -128,6 +131,11 @@ back before the final flush.
 
 ### Benefits
 
+- **Compute on demand.** One of the main goals of Zeta is to avoid keeping a
+  powerful build machine running all the time. Build compute is requested only
+  while a build Job is running, then released. Persistent environments scale to
+  zero when idle. A small shared cluster replaces always-on, high-end developer
+  workstations for builds.
 - **Zero Kubernetes onboarding for developers.** No kubeconfig, no namespace
   access, no `kubectl` knowledge required.
 - **Reproducible environments.** Every build uses a pinned image and profile, so
@@ -183,6 +191,16 @@ Kubernetes resources:
 
 ## 3. Requirements
 
+Published installation:
+
+- Kubernetes 1.27+ with an Ingress controller.
+- Helm 3.14+.
+- `kubectl`.
+- A StorageClass: `local-path` on a single node, or an EBS/gp3 class in
+  production.
+
+Source installation additionally needs:
+
 - Linux or WSL2.
 - A single-node k3s cluster reachable with `kubectl --context local`.
 - Docker, used only to build and import images.
@@ -190,7 +208,7 @@ Kubernetes resources:
 - Go 1.26 or newer for building the portal and CLI.
 - Passwordless `sudo -n` for `k3s` and `k3s ctr` image imports.
 
-Check the environment:
+Check a source environment:
 
 ```bash
 make doctor
@@ -204,47 +222,77 @@ docker version
 go version
 ```
 
-Always use `--context local` in this repository. The default kubectl context may
+Always use `--context local` for the source path. The default kubectl context may
 point at another cluster.
 
 ---
 
 ## 4. Quick start
 
+### Platform team
+
 ```bash
-# 1. Check prerequisites
-make doctor
+helm upgrade --install zeta oci://ghcr.io/slimaineb/charts/zeta \
+  --version 0.1.0 \
+  --namespace zeta-poc --create-namespace \
+  --set ingress.host=zeta.local
+```
 
-# 2. Install the platform: images, PVCs, portal
-make install-platform
+The published chart points at the GHCR images. See
+[platform installation](docs/platform/installation.md) for OIDC, storage,
+private registries, and upgrades.
 
-# Optional: also deploy the example Git server
-make install-platform WITH_GIT_SERVER=1
+### Developers
 
-# 3. Install the zeta CLI into ~/.local/bin
-make install-user
+Linux and macOS:
 
-# 4. Log in
+```bash
+curl -fsSL https://raw.githubusercontent.com/SlimaineB/zeta/main/scripts/install-cli.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/SlimaineB/zeta/main/scripts/install-cli.ps1 | iex
+```
+
+Then:
+
+```bash
 zeta login --server http://zeta.local --email dev@example.com --password dev
-
-# 5. Build a local project
 cd my-project
 zeta build
 ```
 
-`make install` runs both `install-platform` and `install-user`. Installation is
-idempotent and can be re-run after an update.
+See [developer installation](docs/developer/installation.md) and
+[first build](docs/getting-started/quickstart.md).
 
-To use the example Git server repositories:
+### From source
+
+On a local k3s cluster, build the images and install the local Helm chart:
 
 ```bash
-make install-platform WITH_GIT_SERVER=1
-make -C platform git-init
+./scripts/install.sh
 ```
+
+`make install-smart` is the same command. The older raw path is still available:
+
+```bash
+make install-platform
+make install-platform WITH_GIT_SERVER=1
+make install-user
+```
+
+`make install` now runs `install-smart` and `install-user`.
 
 ---
 
 ## 5. Installation in detail
+
+The quick start above is the recommended path for both audiences. The rest of
+this section describes the local source installation on k3s; the
+[platform documentation](docs/platform/installation.md) covers Helm, OIDC,
+storage, private registries, upgrades, and uninstall.
 
 ### 5.1 Start k3s under WSL
 
@@ -351,7 +399,19 @@ Expected: `refs/heads/main` and one commit per repository.
 
 ### 5.5 Install the CLI
 
-From the repository root:
+Users should install the release binary:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SlimaineB/zeta/main/scripts/install-cli.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/SlimaineB/zeta/main/scripts/install-cli.ps1 | iex
+```
+
+For a source build from the repository root:
 
 ```bash
 make install-user
@@ -1047,6 +1107,8 @@ one-off exclusion; the flag can be repeated.
 | `--kubeconfig` | `ZETA_KUBECONFIG` | empty | Local kubeconfig (development) |
 | `--master` | `ZETA_MASTER` | empty | Kubernetes API URL |
 | `--profiles-file` | `ZETA_PROFILES_FILE` | empty | Additional profiles YAML |
+| `--image-registry` | `ZETA_IMAGE_REGISTRY` | empty | Registry prefix for profile and helper images |
+| `--image-tag` | `ZETA_IMAGE_TAG` | empty | Tag override for profile and helper images |
 | `--storage-class` | `ZETA_STORAGE_CLASS` | `local-path` | StorageClass for shared PVCs |
 | `--volume-quota` | `ZETA_VOLUME_QUOTA` | `20Gi` | Total capacity of managed volumes |
 | `--volume-max` | `ZETA_VOLUME_MAX` | `10Gi` | Maximum size of one managed volume |
@@ -1092,6 +1154,10 @@ namespace.
 
 ### 9.3 Kubernetes resources
 
+The Helm chart in `charts/zeta` is the recommended installation path. The raw
+manifests remain for local development.
+
+- `charts/zeta/`: portal, RBAC, PVCs, Ingress, and optional Git server
 - `platform/manifests/namespace.yaml`: namespace and Pod Security labels
 - `platform/manifests/pvc.yaml`: shared artifacts PVC
 - `platform/manifests/cache-pvc.yaml`: shared build cache PVC
@@ -1194,6 +1260,15 @@ Constraints:
 ---
 
 ## 11. Operations
+
+For Helm installs, upgrade with:
+
+```bash
+helm upgrade --install zeta oci://ghcr.io/slimaineb/charts/zeta \
+  --version 0.2.0 --namespace zeta-poc --reuse-values
+```
+
+See [deployment and operations](docs/operations/deployment.md).
 
 ### 11.1 Portal logs
 
@@ -1469,12 +1544,17 @@ Useful Makefile targets:
 
 ```bash
 make doctor
-make install-platform
+make install-smart          # build images, import into k3s, Helm install
+make install-platform       # raw manifests (development)
 make install-platform WITH_GIT_SERVER=1
-make install-user
-make install
+make install-user           # build the CLI from source
+make install-cli            # install the latest release binary
+make install                # install-smart + install-user
 make status
 make uninstall-platform
+make helm-lint
+make helm-template
+make helm-package
 ```
 
 POC targets:
@@ -1502,13 +1582,26 @@ make clean
 ├── README.md
 ├── mkdocs.yml
 ├── requirements-docs.txt
+├── .github/workflows/
+│   ├── docs.yml
+│   └── release.yml
+├── charts/
+│   └── zeta/
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       └── templates/
 ├── scripts/
 │   ├── doctor.sh
+│   ├── install.sh
+│   ├── install-cli.sh
+│   ├── install-cli.ps1
 │   ├── install-platform.sh
 │   ├── install-user.sh
 │   └── uninstall-platform.sh
 ├── docs/
 │   ├── index.md
+│   ├── platform/
+│   ├── developer/
 │   ├── getting-started/
 │   ├── user-guide/
 │   ├── reference/

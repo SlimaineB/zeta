@@ -10,13 +10,21 @@ The web UI is a monitoring dashboard, not a build form.
 
 <div class="grid cards" markdown>
 
--   :material-rocket-launch:{ .lg .middle } **Get started**
+-   :material-server-network:{ .lg .middle } **Operate the platform**
 
     ---
 
-    Install the portal and CLI, then run your first build in minutes.
+    Install the portal with Helm, configure OIDC and storage, and run upgrades.
 
-    [:octicons-arrow-right-24: Installation](getting-started/installation.md)
+    [:octicons-arrow-right-24: Platform overview](platform/index.md)
+
+-   :material-laptop:{ .lg .middle } **Build with Zeta**
+
+    ---
+
+    Install the CLI with `curl | sh` or PowerShell, then build without a kubeconfig.
+
+    [:octicons-arrow-right-24: Developer overview](developer/index.md)
 
 -   :material-console:{ .lg .middle } **Use the CLI**
 
@@ -25,14 +33,6 @@ The web UI is a monitoring dashboard, not a build form.
     Local or Git builds, live logs, artifacts, volumes, and environments.
 
     [:octicons-arrow-right-24: CLI guide](user-guide/cli.md)
-
--   :material-server-network:{ .lg .middle } **Persistent environments**
-
-    ---
-
-    A long-lived pod, a volume, an interactive shell, and file mirroring.
-
-    [:octicons-arrow-right-24: Environments](user-guide/environments.md)
 
 -   :material-sitemap:{ .lg .middle } **Understand the architecture**
 
@@ -44,8 +44,42 @@ The web UI is a monitoring dashboard, not a build form.
 
 </div>
 
+## Quick start
+
+=== "Platform team"
+
+    ```bash
+    helm upgrade --install zeta oci://ghcr.io/slimaineb/charts/zeta \
+      --version 0.1.0 \
+      --namespace zeta-poc --create-namespace \
+      --set ingress.host=zeta.local
+    ```
+
+    See [Install the platform](platform/installation.md).
+
+=== "Developer"
+
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/SlimaineB/zeta/main/scripts/install-cli.sh | sh
+    zeta login --server http://zeta.local --email dev@example.com --password dev
+    cd my-project
+    zeta build
+    ```
+
+    On Windows:
+
+    ```powershell
+    irm https://raw.githubusercontent.com/SlimaineB/zeta/main/scripts/install-cli.ps1 | iex
+    ```
+
+    See [Install the CLI](developer/installation.md).
+
 ## What Zeta gives you
 
+- **Compute on demand.** One of the main goals of Zeta is to avoid keeping a
+  powerful workstation or build server running all the time. Builds run in
+  short-lived Kubernetes Jobs, so CPU and memory are used only while a build is
+  running. Persistent environments scale to zero when idle.
 - **Zero Kubernetes onboarding.** No kubeconfig, no namespace access, no
   `kubectl` knowledge required.
 - **Reproducible environments.** Every build uses a pinned image and profile, so
@@ -65,28 +99,32 @@ The web UI is a monitoring dashboard, not a build form.
 
 ## High-level view
 
-```text
-Developer workstation
-  |
-  |  zeta build / zeta activate
-  v
-zeta CLI ---- HTTP + session cookie ----> Zeta portal (in-cluster)
-                                          |
-                                          | ServiceAccount + namespace RBAC
-                                          v
-                                    Kubernetes Job (build)
-                                      |- init: extract context or clone Git
-                                      |- build: run profile commands
-                                      |- syncd: optional workspace sync
-                                      |- cache PVC
-                                      `- artifacts PVC
-                                          |
-                                          v
-                               Portal: logs, status, metrics, artifacts
-                                          |
-                                          v
-                                   Web dashboard
+```mermaid
+flowchart LR
+  subgraph workstation["Developer workstation"]
+    CLI["zeta CLI"]
+  end
+
+  subgraph cluster["Kubernetes cluster"]
+    Portal["Zeta portal"]
+    API["Kubernetes API"]
+    Job["Build Job"]
+    Env["Environment<br/>replicas 0 or 1"]
+    Cache[("cache PVC")]
+    Artifacts[("artifacts PVC")]
+  end
+
+  CLI -->|"HTTP + session cookie"| Portal
+  Portal -->|"ServiceAccount + RBAC"| API
+  API --> Job
+  API --> Env
+  Job --> Cache
+  Job --> Artifacts
+  Portal -->|"logs, metrics, artifacts"| CLI
 ```
+
+The build Job is ephemeral: it is created when you run `zeta build` and removed
+after completion. Only the cache and artifacts PVCs remain.
 
 For persistent environments, the workload is not an ephemeral Job:
 
@@ -122,7 +160,11 @@ Known limitations are documented in [Security](operations/security.md) and
 
 ## Documentation
 
-- [Installation](getting-started/installation.md)
+- [Platform overview](platform/index.md)
+- [Install the platform](platform/installation.md)
+- [Helm chart reference](platform/helm-chart.md)
+- [Developer overview](developer/index.md)
+- [Install the CLI](developer/installation.md)
 - [First build](getting-started/quickstart.md)
 - [`zeta.yaml` reference](reference/zeta-yaml.md)
 - [HTTP API](reference/api.md)

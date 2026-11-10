@@ -1,0 +1,115 @@
+{{- if .Values.gitServer.enabled }}
+{{- $gitStorageClass := .Values.gitServer.persistence.storageClass | default .Values.portal.storageClass }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.gitServer.persistence.claimName }}
+  labels:
+    {{- include "zeta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: git-server
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if $gitStorageClass }}
+  storageClassName: {{ $gitStorageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.gitServer.persistence.size }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "zeta.fullname" . }}-git
+  labels:
+    {{- include "zeta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: git-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "zeta.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: git-server
+  template:
+    metadata:
+      labels:
+        {{- include "zeta.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: git-server
+    spec:
+      automountServiceAccountToken: false
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.gitServer.podSecurityContext | nindent 8 }}
+      initContainers:
+        - name: init-repos
+          image: {{ include "zeta.gitServerImage" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - sh
+            - -c
+            - |
+              set -e
+              mkdir -p /srv/git
+              for repo in cpp python-uv go; do
+                if [ ! -d "/srv/git/$repo.git" ]; then
+                  git init --bare --initial-branch=main "/srv/git/$repo.git"
+                fi
+                git --git-dir="/srv/git/$repo.git" symbolic-ref HEAD refs/heads/main
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: git
+              mountPath: /srv/git
+      containers:
+        - name: git-daemon
+          image: {{ include "zeta.gitServerImage" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command:
+            - git
+            - daemon
+            - --base-path=/srv/git
+            - --export-all
+            - --reuseaddr
+            - --informative-errors
+            - --verbose
+            - --enable=receive-pack
+          ports:
+            - name: git
+              containerPort: 9418
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: git
+              mountPath: /srv/git
+          resources:
+            {{- toYaml .Values.gitServer.resources | nindent 12 }}
+      volumes:
+        - name: git
+          persistentVolumeClaim:
+            claimName: {{ .Values.gitServer.persistence.claimName }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.gitServer.service.name }}
+  labels:
+    {{- include "zeta.labels" . | nindent 4 }}
+    app.kubernetes.io/component: git-server
+spec:
+  selector:
+    {{- include "zeta.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: git-server
+  ports:
+    - name: git
+      port: {{ .Values.gitServer.service.port }}
+      targetPort: git
+{{- end }}

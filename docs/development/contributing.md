@@ -43,12 +43,17 @@ make build
 
 ```bash
 make doctor
-make install-platform
+make install-smart          # build images, import into k3s, Helm install
+make install-platform       # raw manifests (development)
 make install-platform WITH_GIT_SERVER=1
-make install-user
-make install
+make install-user           # build the CLI from source
+make install-cli            # install the latest release binary
+make install                # install-smart + install-user
 make status
 make uninstall-platform
+make helm-lint
+make helm-template
+make helm-package
 ```
 
 Platform targets:
@@ -90,6 +95,10 @@ resources, env, and metrics.
 - Keep user-facing messages consistent.
 
 ## Documentation
+
+The docs are split into `docs/platform/` (Helm, operations) and
+`docs/developer/` (CLI, first build). Keep the two audiences separate and make
+sure cross-links resolve.
 
 The docs use MkDocs Material:
 

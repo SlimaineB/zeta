@@ -6,14 +6,26 @@
 ├── README.md
 ├── mkdocs.yml
 ├── requirements-docs.txt
-├── .github/workflows/docs.yml
+├── .github/workflows/
+│   ├── docs.yml
+│   └── release.yml
+├── charts/
+│   └── zeta/
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       └── templates/
 ├── scripts/
 │   ├── doctor.sh
+│   ├── install.sh
+│   ├── install-cli.sh
+│   ├── install-cli.ps1
 │   ├── install-platform.sh
 │   ├── install-user.sh
 │   └── uninstall-platform.sh
 ├── docs/
 │   ├── index.md
+│   ├── platform/
+│   ├── developer/
 │   ├── getting-started/
 │   ├── user-guide/
 │   ├── reference/
@@ -104,8 +116,11 @@
 | Change profile defaults | `portal/internal/builds/defaults.yaml` |
 | Change flags or env variables | `portal/internal/config/config.go` |
 | Change the dashboard | `portal/internal/ui/` |
-| Change manifests or RBAC | `platform/manifests/` |
+| Change the Helm chart | `charts/zeta/` |
+| Change raw manifests or RBAC | `platform/manifests/` |
 | Change images | `platform/images/` and `platform/scripts/build-images.sh` |
+| Change the release pipeline | `.github/workflows/release.yml` |
+| Change the installers | `scripts/install*.sh` and `scripts/install-cli.ps1` |
 | Change docs | `docs/` and `mkdocs.yml` |
 
 ## Data flow

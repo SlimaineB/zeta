@@ -1,0 +1,18 @@
+Zeta is installed in namespace {{ .Release.Namespace }}.
+
+{{ if .Values.ingress.enabled -}}
+Portal:
+  http://{{ .Values.ingress.host }}
+{{ else -}}
+Portal (port-forward):
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "zeta.fullname" . }} 8080:{{ .Values.service.port }}
+{{ end }}
+{{ if .Values.auth.dev -}}
+Development login:
+  zeta login --server {{ if .Values.ingress.enabled }}http://{{ .Values.ingress.host }}{{ else }}http://localhost:8080{{ end }} --email dev@example.com --password dev
+{{ else -}}
+OIDC issuer:
+  {{ .Values.auth.oidc.issuer }}
+{{ end }}
+Check the rollout:
+  kubectl -n {{ .Release.Namespace }} get deploy,pods,pvc

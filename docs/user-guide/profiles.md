@@ -23,6 +23,28 @@ The Go profile:
   `go build .` depending on the project layout;
 - reports `cache_bytes`.
 
+## Registry and tag overrides
+
+Profiles in the defaults use short image names such as `zeta/cpp:0.1`. The
+portal can rewrite them at startup:
+
+```bash
+zeta-portal -image-registry=ghcr.io/slimaineb -image-tag=0.1.0
+```
+
+or with environment variables:
+
+```bash
+ZETA_IMAGE_REGISTRY=ghcr.io/slimaineb ZETA_IMAGE_TAG=0.1.0 zeta-portal
+```
+
+The override applies to every profile image and to the helper images used by
+builds (context init, `syncd`, and the optional Git server). Images that already
+include a registry are left unchanged. The Helm chart wires this automatically
+from `image.registry` / `image.tag`.
+
+See [Portal configuration](../reference/configuration.md#image-overrides).
+
 ## Schema
 
 ```yaml

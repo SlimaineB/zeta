@@ -66,9 +66,11 @@ type Repository struct {
 	storageClass     string
 	volumeQuotaBytes int64
 	volumeMaxBytes   int64
+	imageRegistry    string
+	imageTag         string
 }
 
-func NewRepository(namespace, kubeconfig, masterURL, storageClass string, volumeQuotaBytes, volumeMaxBytes int64) (*Repository, error) {
+func NewRepository(namespace, kubeconfig, masterURL, storageClass string, volumeQuotaBytes, volumeMaxBytes int64, imageRegistry, imageTag string) (*Repository, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if kubeconfig != "" {
 		loadingRules.ExplicitPath = kubeconfig
@@ -99,7 +101,21 @@ func NewRepository(namespace, kubeconfig, masterURL, storageClass string, volume
 		storageClass:     storageClass,
 		volumeQuotaBytes: volumeQuotaBytes,
 		volumeMaxBytes:   volumeMaxBytes,
+		imageRegistry:    strings.TrimSuffix(strings.TrimSpace(imageRegistry), "/"),
+		imageTag:         strings.TrimSpace(imageTag),
 	}, nil
+}
+
+func (r *Repository) helperImage(repository, defaultTag string) string {
+	tag := r.imageTag
+	if tag == "" {
+		tag = defaultTag
+	}
+	registry := strings.TrimSuffix(r.imageRegistry, "/")
+	if registry == "" {
+		return repository + ":" + tag
+	}
+	return registry + "/" + repository + ":" + tag
 }
 
 func (r *Repository) EnsurePVCs(ctx context.Context) error {
@@ -277,7 +293,7 @@ func (r *Repository) Create(ctx context.Context, spec domain.BuildSpec) (string,
 
 	initContainer := corev1.Container{
 		Name:            "context",
-		Image:           "zeta/git-server:0.1",
+		Image:           r.helperImage("zeta/git-server", "0.1"),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         []string{"sh", "-c"},
 		SecurityContext: lockedContext(),
@@ -328,7 +344,7 @@ func (r *Repository) Create(ctx context.Context, spec domain.BuildSpec) (string,
 	if spec.SyncToken != "" {
 		containers = append(containers, corev1.Container{
 			Name:            "syncd",
-			Image:           "zeta/portal:0.1",
+			Image:           r.helperImage("zeta/portal", "0.1"),
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Command:         []string{"/syncd"},
 			SecurityContext: lockedContext(),
@@ -948,7 +964,7 @@ func (r *Repository) ensureEnvDeployment(ctx context.Context, id string, profile
 	}
 	syncdContainer := corev1.Container{
 		Name:            "syncd",
-		Image:           "zeta/portal:0.1",
+		Image:           r.helperImage("zeta/portal", "0.1"),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         []string{"/syncd"},
 		SecurityContext: lockedContext(),

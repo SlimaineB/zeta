@@ -13,7 +13,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
-	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -624,7 +623,7 @@ func cmdEnvActivate(args []string) {
 	defer os.RemoveAll(artifactsDir)
 	patterns := append(contexttar.EnvExcludes(), proj.Exclude...)
 	patterns = append(patterns, excludes.values()...)
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), terminationSignals()...)
 	defer stop()
 	session, err := syncer.StartClient(ctx, syncer.ClientOptions{
 		URL:       syncURL,

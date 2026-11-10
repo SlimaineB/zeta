@@ -12,6 +12,8 @@ precedence.
 | `--kubeconfig` | `ZETA_KUBECONFIG` | empty | Local kubeconfig (development) |
 | `--master` | `ZETA_MASTER` | empty | Kubernetes API URL |
 | `--profiles-file` | `ZETA_PROFILES_FILE` | empty | Additional profiles YAML |
+| `--image-registry` | `ZETA_IMAGE_REGISTRY` | empty | Registry prefix for profile and helper images |
+| `--image-tag` | `ZETA_IMAGE_TAG` | empty | Tag override for profile and helper images |
 | `--storage-class` | `ZETA_STORAGE_CLASS` | `local-path` | StorageClass for shared PVCs |
 | `--volume-quota` | `ZETA_VOLUME_QUOTA` | `20Gi` | Total capacity of managed volumes |
 | `--volume-max` | `ZETA_VOLUME_MAX` | `10Gi` | Maximum size of one managed volume |
@@ -75,6 +77,31 @@ With `--oidc-dev`, the portal accepts the built-in users:
 - an environment with an attached shell or sync client is never reaped;
 - scaling down preserves the workspace PVC.
 
+## Image overrides
+
+`--image-registry` and `--image-tag` rewrite the images used by builds:
+
+- profile images such as `zeta/cpp:0.1` become
+  `<registry>/zeta/cpp:<tag>`;
+- the context init image (`zeta/git-server`), the sync sidecar
+  (`zeta/portal`/`syncd`), and the optional Git server use the same registry and
+  tag;
+- images that already contain a registry (for example `ghcr.io/...` or
+  `localhost/...`) are left unchanged;
+- the artifact helper image remains `busybox:1.36` from Docker Hub.
+
+Example:
+
+```bash
+zeta-portal \
+  -image-registry=ghcr.io/slimaineb \
+  -image-tag=0.1.0
+```
+
+The Helm chart sets these values from `image.registry` and `image.tag`. Use the
+same tag as the portal image so the `syncd` sidecar matches the portal. See
+[Helm chart reference](../platform/helm-chart.md#images).
+
 ## Profiles file
 
 `--profiles-file` points to an additional YAML file. It is merged with
@@ -93,8 +120,12 @@ See [Volumes and artifacts](../user-guide/volumes.md).
 
 ## Kubernetes resources
 
+The Helm chart in `charts/zeta` is the recommended installation path. The raw
+manifests remain for local development and for understanding the resources.
+
 | Manifest | Contents |
 |---|---|
+| `charts/zeta/` | Helm chart for the portal, RBAC, PVCs, Ingress, and optional Git server |
 | `platform/manifests/namespace.yaml` | Namespace and Pod Security labels |
 | `platform/manifests/pvc.yaml` | Shared artifacts PVC |
 | `platform/manifests/cache-pvc.yaml` | Shared build cache PVC |
@@ -119,6 +150,9 @@ Managed resources carry `zeta.io/managed-by=portal` and role/profile labels.
 
 ## Deployment environment
 
-The portal Deployment in `platform/manifests/portal.yaml` sets the namespace,
-storage class, quotas, idle timeout, and dev auth. Adjust the `args` list for
-production and add the OIDC values from your secret store.
+With Helm, configure the portal through values such as `portal.storageClass`,
+`portal.volumeQuota`, `portal.envIdleTimeout`, `auth.*`, and `image.*`; see the
+[Helm chart reference](../platform/helm-chart.md).
+
+The raw `platform/manifests/portal.yaml` sets the same options in its `args`
+list. Adjust it for production and add OIDC values from your secret store.

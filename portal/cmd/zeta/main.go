@@ -34,7 +34,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("profils: %v", err)
 	}
-	repo, err := kube.NewRepository(cfg.Namespace, cfg.KubeConfig, cfg.MasterURL, cfg.StorageClass, cfg.VolumeQuotaBytes, cfg.VolumeMaxBytes)
+	registry.ApplyImageOverrides(cfg.ImageRegistry, cfg.ImageTag)
+	repo, err := kube.NewRepository(cfg.Namespace, cfg.KubeConfig, cfg.MasterURL, cfg.StorageClass, cfg.VolumeQuotaBytes, cfg.VolumeMaxBytes, cfg.ImageRegistry, cfg.ImageTag)
 	if err != nil {
 		log.Fatalf("kubernetes: %v", err)
 	}

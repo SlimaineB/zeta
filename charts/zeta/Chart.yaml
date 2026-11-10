@@ -1,0 +1,16 @@
+apiVersion: v2
+name: zeta
+description: Kubernetes build portal and persistent development environments
+type: application
+version: 0.1.0
+appVersion: "0.1"
+home: https://github.com/SlimaineB/zeta
+sources:
+  - https://github.com/SlimaineB/zeta
+maintainers:
+  - name: SlimaineB
+keywords:
+  - kubernetes
+  - builds
+  - developer-platform
+  - remote-development

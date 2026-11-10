@@ -13,6 +13,7 @@
 
 # MkDocs
 /site/
+/.venv-docs/
 
 # Local state and logs
 .zeta/

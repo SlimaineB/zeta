@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"os"
-	"os/signal"
-	"syscall"
 
 	"golang.org/x/net/websocket"
 	"golang.org/x/term"
@@ -69,19 +67,7 @@ func RunShell(ctx context.Context, conn *WSConn, in, out *os.File) error {
 	}
 	sendSize()
 
-	winch := make(chan os.Signal, 1)
-	signal.Notify(winch, syscall.SIGWINCH)
-	defer signal.Stop(winch)
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-winch:
-				sendSize()
-			}
-		}
-	}()
+	go watchResize(ctx, sendSize)
 
 	go func() {
 		buf := make([]byte, 4096)

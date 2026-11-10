@@ -1,0 +1,59 @@
+{{- $artifactsStorageClass := .Values.persistence.artifacts.storageClass | default .Values.portal.storageClass -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zeta-poc-artifacts
+  labels:
+    {{- include "zeta.labels" . | nindent 4 }}
+    zeta.io/managed-by: portal
+    zeta.io/volume-role: artifacts
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if $artifactsStorageClass }}
+  storageClassName: {{ $artifactsStorageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.artifacts.size }}
+---
+{{- $cacheStorageClass := .Values.persistence.cache.storageClass | default .Values.portal.storageClass }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zeta-poc-cache
+  labels:
+    {{- include "zeta.labels" . | nindent 4 }}
+    zeta.io/managed-by: portal
+    zeta.io/volume-role: cache
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if $cacheStorageClass }}
+  storageClassName: {{ $cacheStorageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.cache.size }}
+---
+{{- $contextsStorageClass := .Values.persistence.contexts.storageClass | default .Values.portal.storageClass }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: zeta-poc-contexts
+  labels:
+    {{- include "zeta.labels" . | nindent 4 }}
+    zeta.io/managed-by: portal
+    zeta.io/volume-role: context
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- if $contextsStorageClass }}
+  storageClassName: {{ $contextsStorageClass | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.persistence.contexts.size }}

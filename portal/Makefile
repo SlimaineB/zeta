@@ -5,9 +5,11 @@ IMAGE ?= zeta/portal:0.1
 .PHONY: build syncd test image import deploy logs
 
 build:
+	mkdir -p bin
 	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o bin/zeta ./cmd/zeta
 
 syncd:
+	mkdir -p bin
 	cd ../cli && CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o ../portal/bin/syncd ./cmd/syncd
 
 test:

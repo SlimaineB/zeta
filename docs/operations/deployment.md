@@ -1,9 +1,48 @@
 # Deployment and operations
 
-This page covers day-two operations: deploying updates, inspecting state,
-cleaning up, and publishing the documentation.
+This page covers day-two operations: upgrades, logs, cleanup, releases, and
+documentation publishing.
 
-## Deploy or update the portal
+## Update the platform with Helm
+
+The recommended upgrade path is the published chart:
+
+```bash
+helm upgrade --install zeta oci://ghcr.io/slimaineb/charts/zeta \
+  --version 0.2.0 \
+  --namespace zeta-poc \
+  --reuse-values
+```
+
+Review the new defaults before upgrading:
+
+```bash
+helm show values oci://ghcr.io/slimaineb/charts/zeta --version 0.2.0
+```
+
+`--reuse-values` keeps your previous overrides. The chart updates the portal,
+RBAC, and optional Git server; shared PVCs are preserved. The portal image and
+helper images (context init, `syncd`, Git server) use the chart version by
+default.
+
+See the [Helm chart reference](../platform/helm-chart.md) for values and
+examples.
+
+## Deploy from source
+
+On a local k3s cluster, build the images and install the local chart:
+
+```bash
+./scripts/install.sh
+```
+
+Or use the Make target:
+
+```bash
+make install-smart
+```
+
+The raw manifest path remains available for development:
 
 ```bash
 cd portal
@@ -11,16 +50,10 @@ make test
 make deploy
 ```
 
-`make deploy`:
-
-- compiles `portal/bin/zeta`;
-- builds the `zeta/portal:0.1` image, including `syncd`;
-- imports it into k3s;
-- applies `platform/manifests/portal.yaml`;
-- restarts the Deployment and waits for rollout.
-
-From the repository root, `make install-platform` rebuilds the images and
-reapplies everything.
+`make deploy` compiles the portal, builds `zeta/portal:0.1`, imports it into
+k3s, applies `platform/manifests/portal.yaml`, and waits for the rollout. From
+the repository root, `make install-platform` rebuilds the images and reapplies
+the raw manifests.
 
 ## Build and import images
 
@@ -38,6 +71,20 @@ docker save zeta/go:0.1 | sudo -n k3s ctr images import -
 
 ## Install or update the CLI
 
+Users should install the release binary:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/SlimaineB/zeta/main/scripts/install-cli.sh | sh
+```
+
+On Windows:
+
+```powershell
+irm https://raw.githubusercontent.com/SlimaineB/zeta/main/scripts/install-cli.ps1 | iex
+```
+
+For a source build:
+
 ```bash
 make install-user
 ```
@@ -50,10 +97,29 @@ make build
 sudo install -m 0755 bin/zeta /usr/local/bin/zeta
 ```
 
+See [Install the CLI](../developer/installation.md).
+
+## Release pipeline
+
+The [release workflow](https://github.com/SlimaineB/zeta/blob/main/.github/workflows/release.yml)
+runs on `v*` tags. For `v0.1.0` it publishes:
+
+- images `ghcr.io/<owner>/zeta/{portal,cpp,go,python-uv,git-server}:0.1.0`
+  and `:latest`;
+- CLI assets `zeta-{linux,darwin,windows}-{amd64,arm64}`;
+- the Helm chart at `oci://ghcr.io/<owner>/charts/zeta:0.1.0`;
+- a GitHub Release with the binaries, chart, and `checksums.txt`.
+
+The chart package is patched with the release registry, so a plain
+`helm install` uses the published images. The workflow also attempts to make the
+GHCR packages public. If a package stays private, follow the
+[private registry](../platform/installation.md#private-registry) steps.
+
 ## Status
 
 ```bash
 make status
+helm status zeta -n zeta-poc
 ```
 
 Useful checks:
@@ -137,6 +203,19 @@ retry.
 ## Uninstall
 
 ```bash
+helm uninstall zeta -n zeta-poc
+```
+
+The shared PVCs have `helm.sh/resource-policy: keep`, so Helm leaves the cache,
+artifacts, and environment workspaces in place. To remove everything:
+
+```bash
+kubectl delete namespace zeta-poc
+```
+
+For a raw installation:
+
+```bash
 make uninstall-platform
 ```
 
@@ -180,23 +259,28 @@ changes `docs/`, `mkdocs.yml`, or `requirements-docs.txt`. It installs
 mkdocs gh-deploy --force
 ```
 
-This publishes to the `gh-pages` branch. In the GitHub repository:
+This publishes to the `gh-pages` branch. The repository Pages source is:
+
+- branch `gh-pages`;
+- folder `/ (root)`.
+
+The site is available at <https://slimaineb.github.io/zeta/>.
+
+If the URL returns a GitHub Pages 404:
 
 1. open **Settings → Pages**;
 2. set **Source** to **Deploy from a branch**;
-3. choose the `gh-pages` branch and the `/ (root)` folder;
-4. save.
+3. choose `gh-pages` and `/ (root)`;
+4. save, then wait for the Pages build to finish.
 
-The site is then available at `https://slimaineb.github.io/zeta/`.
-
-You can also trigger the workflow manually from the **Actions** tab.
+You can also trigger the docs workflow manually from the **Actions** tab.
 
 ## Upgrade checklist
 
-1. `git pull`.
-2. `make doctor`.
-3. `make install-platform` (images and portal).
-4. `make install-user` (CLI).
+1. Review the release notes and `helm show values`.
+2. Back up any data you cannot recreate.
+3. `helm upgrade --install zeta ... --reuse-values`.
+4. Update the CLI with the install script.
 5. `zeta login`.
 6. Run a smoke build and `zeta ls`.
 
@@ -206,4 +290,5 @@ You can also trigger the workflow manually from the **Actions** tab.
   portal.
 - Back up environment workspaces from inside the pod, or snapshot the underlying
   storage.
-- Configuration lives in `platform/manifests/portal.yaml` and the profiles YAML.
+- Helm configuration lives in your values file or `--set` overrides. Raw
+  configuration lives in `platform/manifests/portal.yaml` and the profiles YAML.
