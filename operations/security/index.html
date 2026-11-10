@@ -1614,7 +1614,7 @@ scoped to the workspace and the configured exclusions.</p>
 <li>No per-group RBAC or strong multi-tenant isolation.</li>
 <li>No private SSH repository support; use HTTPS tokens.</li>
 <li>Artifacts are stored per language path, not per build.</li>
-<li>No S3/MinIO backend; PVCs use <code>local-path</code> on the POC cluster.</li>
+<li>No S3/MinIO backend; PVCs use <code>local-path</code> on the reference single-node cluster.</li>
 <li>No automatic volume garbage collection.</li>
 <li>Volume expansion requires a StorageClass with <code>allowVolumeExpansion: true</code>.</li>
 <li>Jobs and artifacts expire after one hour by default.</li>
