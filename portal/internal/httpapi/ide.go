@@ -14,10 +14,17 @@ import (
 	"zeta/portal/internal/builds"
 )
 
+const ideAcquireTimeout = 5 * time.Minute
+
+type ideKey struct {
+	envID   string
+	shareID string
+}
+
 type ideProxy struct {
 	builds  *builds.Service
 	mu      sync.Mutex
-	entries map[string]*ideEntry
+	entries map[ideKey]*ideEntry
 }
 
 type ideEntry struct {
@@ -26,21 +33,29 @@ type ideEntry struct {
 }
 
 func newIDEProxy(buildService *builds.Service) *ideProxy {
-	return &ideProxy{builds: buildService, entries: map[string]*ideEntry{}}
+	return &ideProxy{builds: buildService, entries: map[ideKey]*ideEntry{}}
 }
 
 func (p *ideProxy) acquire(id string) (*url.URL, error) {
+	return p.acquireKey(ideKey{envID: id})
+}
+
+func (p *ideProxy) acquireShare(id, shareID string) (*url.URL, error) {
+	return p.acquireKey(ideKey{envID: id, shareID: shareID})
+}
+
+func (p *ideProxy) acquireKey(key ideKey) (*url.URL, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if entry := p.entries[id]; entry != nil {
+	if entry := p.entries[key]; entry != nil {
 		return entry.target, nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), ideAcquireTimeout)
 	defer cancel()
-	if err := p.builds.EnsureEnvironmentIDE(ctx, id); err != nil {
+	if err := p.builds.EnsureEnvironmentIDE(ctx, key.envID); err != nil {
 		return nil, err
 	}
-	forward, err := p.builds.ForwardEnvironmentIDE(ctx, id)
+	forward, err := p.builds.ForwardEnvironmentIDE(ctx, key.envID)
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +64,7 @@ func (p *ideProxy) acquire(id string) (*url.URL, error) {
 		forward.Close()
 		return nil, err
 	}
-	p.entries[id] = &ideEntry{target: target, close: forward.Close}
+	p.entries[key] = &ideEntry{target: target, close: forward.Close}
 	return target, nil
 }
 
@@ -81,24 +96,50 @@ func waitIDEHTTP(ctx context.Context, target *url.URL) error {
 	}
 }
 
-func (p *ideProxy) invalidate(id string) {
+func (p *ideProxy) invalidate(key ideKey) {
 	p.mu.Lock()
-	entry := p.entries[id]
-	delete(p.entries, id)
+	entry := p.entries[key]
+	delete(p.entries, key)
 	p.mu.Unlock()
 	if entry != nil && entry.close != nil {
 		entry.close()
 	}
 }
 
-func (p *ideProxy) Close(id string) { p.invalidate(id) }
+func (p *ideProxy) Close(id string) {
+	p.mu.Lock()
+	entries := make([]*ideEntry, 0)
+	for key, entry := range p.entries {
+		if key.envID == id {
+			entries = append(entries, entry)
+			delete(p.entries, key)
+		}
+	}
+	p.mu.Unlock()
+	for _, entry := range entries {
+		if entry.close != nil {
+			entry.close()
+		}
+	}
+}
+
+func (p *ideProxy) CloseShare(id, shareID string) {
+	p.invalidate(ideKey{envID: id, shareID: shareID})
+}
 
 func (s *Server) enableEnvIDE(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !s.authorizeEnv(w, r, id) {
 		return
 	}
-	if _, err := s.ide.acquire(id); err != nil {
+	identity := s.requestIdentity(r)
+	var err error
+	if identity.guest {
+		_, err = s.ide.acquireShare(id, identity.shareID)
+	} else {
+		_, err = s.ide.acquire(id)
+	}
+	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
 	}
@@ -125,7 +166,12 @@ func (s *Server) envIDE(w http.ResponseWriter, r *http.Request) {
 	if !s.authorizeEnv(w, r, id) {
 		return
 	}
-	target, err := s.ide.acquire(id)
+	identity := s.requestIdentity(r)
+	key := ideKey{envID: id}
+	if identity.guest {
+		key.shareID = identity.shareID
+	}
+	target, err := s.ide.acquireKey(key)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
@@ -138,7 +184,6 @@ func (s *Server) envIDE(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.RawQuery
 	s.sync.Touch(id)
 	if isWebSocketRequest(r) {
-		identity := s.requestIdentity(r)
 		release := s.sync.BeginIDE(id, identity.key, identity.name, identity.shareID, identity.guest)
 		defer release()
 	}
@@ -163,7 +208,7 @@ func (s *Server) envIDE(w http.ResponseWriter, r *http.Request) {
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, err error) {
-			s.ide.invalidate(id)
+			s.ide.invalidate(key)
 			http.Error(w, "IDE indisponible", http.StatusBadGateway)
 		},
 		FlushInterval: -1,

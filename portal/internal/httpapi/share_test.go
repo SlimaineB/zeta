@@ -52,6 +52,34 @@ func TestShareStoreRejectsExpiredAndBadTTL(t *testing.T) {
 	}
 }
 
+func TestShareStoreEnforcesTTLBounds(t *testing.T) {
+	store := newShareStore()
+	for _, ttl := range []time.Duration{30 * time.Second, 8 * 24 * time.Hour} {
+		if _, _, err := store.Create("env", "", "dev", ttl); err == nil {
+			t.Fatalf("TTL %s accepted", ttl)
+		}
+	}
+	if _, _, err := store.Create("env", "", "dev", time.Minute); err != nil {
+		t.Fatalf("minimum TTL rejected: %v", err)
+	}
+}
+
+func TestShareStoreEnforcesPerEnvLimit(t *testing.T) {
+	store := newShareStore()
+	for i := 0; i < maxSharesPerEnv; i++ {
+		if _, _, err := store.Create("env", "", "dev", time.Hour); err != nil {
+			t.Fatalf("share %d: %v", i, err)
+		}
+	}
+	if _, _, err := store.Create("env", "", "dev", time.Hour); err == nil {
+		t.Fatal("share limit not enforced")
+	}
+	store.RevokeEnv("env")
+	if _, _, err := store.Create("env", "", "dev", time.Hour); err != nil {
+		t.Fatalf("create after revoke: %v", err)
+	}
+}
+
 func TestShareStoreExpireClosesConnections(t *testing.T) {
 	store := newShareStore()
 	expired := ""

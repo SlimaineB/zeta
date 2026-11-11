@@ -40,12 +40,7 @@ type Server struct {
 func New(cfg config.Config, buildService *builds.Service, authService *auth.Service, syncHub *synchub.Hub) *Server {
 	s := &Server{cfg: cfg, builds: buildService, auth: authService, sync: syncHub, ide: newIDEProxy(buildService), shares: newShareStore()}
 	s.shares.onExpire = func(envID, shareID string) {
-		for _, participant := range s.sync.Presence(envID) {
-			if participant.ShareID == shareID && participant.Kind == "ide" {
-				s.ide.Close(envID)
-				return
-			}
-		}
+		s.ide.CloseShare(envID, shareID)
 	}
 	return s
 }

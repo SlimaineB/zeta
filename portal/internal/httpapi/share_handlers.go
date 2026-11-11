@@ -72,20 +72,11 @@ func (s *Server) revokeShare(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	shareID := r.PathValue("shareID")
-	hadIDE := false
-	for _, participant := range s.sync.Presence(id) {
-		if participant.ShareID == shareID && participant.Kind == "ide" {
-			hadIDE = true
-			break
-		}
-	}
 	if !s.shares.Revoke(id, shareID) {
 		writeError(w, http.StatusNotFound, fmt.Errorf("partage %s introuvable", shareID))
 		return
 	}
-	if hadIDE {
-		s.ide.Close(id)
-	}
+	s.ide.CloseShare(id, shareID)
 	w.WriteHeader(http.StatusNoContent)
 }
 

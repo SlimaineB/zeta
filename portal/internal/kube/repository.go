@@ -1299,7 +1299,7 @@ func (r *Repository) ForwardEnvironmentIDE(ctx context.Context, id string) (doma
 }
 
 func (r *Repository) waitIDEPod(ctx context.Context, id string) (string, error) {
-	deadline := time.Now().Add(90 * time.Second)
+	deadline := time.Now().Add(3 * time.Minute)
 	for {
 		pod, err := r.envIDEPod(ctx, id)
 		if err == nil {
@@ -1325,7 +1325,7 @@ func (r *Repository) envIDEPod(ctx context.Context, id string) (string, error) {
 		return "", err
 	}
 	for _, pod := range pods.Items {
-		if pod.Status.Phase != corev1.PodRunning {
+		if pod.DeletionTimestamp != nil || pod.Status.Phase != corev1.PodRunning {
 			continue
 		}
 		ready := map[string]bool{}
@@ -1427,7 +1427,7 @@ func (r *Repository) envPod(ctx context.Context, id string) (string, error) {
 		return "", err
 	}
 	for _, pod := range pods.Items {
-		if pod.Status.Phase != corev1.PodRunning {
+		if pod.DeletionTimestamp != nil || pod.Status.Phase != corev1.PodRunning {
 			continue
 		}
 		for _, status := range pod.Status.ContainerStatuses {

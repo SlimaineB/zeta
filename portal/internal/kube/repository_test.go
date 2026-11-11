@@ -468,6 +468,35 @@ func TestEnsureEnvironmentAddsIDE(t *testing.T) {
 	}
 }
 
+func TestEnvIDEPodSkipsTerminatingPod(t *testing.T) {
+	now := metav1.Now()
+	pod := func(name string, deleting bool) *corev1.Pod {
+		meta := metav1.ObjectMeta{Name: name, Namespace: "test", Labels: map[string]string{envLabel: "dev"}}
+		if deleting {
+			meta.DeletionTimestamp = &now
+		}
+		return &corev1.Pod{
+			ObjectMeta: meta,
+			Status: corev1.PodStatus{
+				Phase: corev1.PodRunning,
+				ContainerStatuses: []corev1.ContainerStatus{
+					{Name: envContainerName, Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
+					{Name: ideContainerName, Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}},
+				},
+			},
+		}
+	}
+	cs := fake.NewSimpleClientset(pod("old", true), pod("new", false))
+	r := &Repository{core: cs.CoreV1(), namespace: "test"}
+	got, err := r.envIDEPod(context.Background(), "dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != "new" {
+		t.Fatalf("envIDEPod() = %q, want new", got)
+	}
+}
+
 func TestEnsureEnvironmentIDEAddsMissingSidecar(t *testing.T) {
 	cs := fake.NewSimpleClientset()
 	r := &Repository{core: cs.CoreV1(), apps: cs.AppsV1(), namespace: "test", storageClass: "local-path"}
