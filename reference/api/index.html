@@ -2159,6 +2159,16 @@ backward compatibility, but new environments and build Jobs use the header.</p>
 <td>Interactive exec WebSocket</td>
 </tr>
 <tr>
+<td><code>POST</code></td>
+<td><code>/api/envs/{id}/ide</code></td>
+<td>Enable the IDE sidecar and return the browser URL</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/envs/{id}/ide/</code></td>
+<td>Authenticated HTTP/WebSocket reverse proxy to code-server</td>
+</tr>
+<tr>
 <td><code>GET</code></td>
 <td><code>/healthz</code></td>
 <td>Health check</td>
@@ -2166,9 +2176,14 @@ backward compatibility, but new environments and build Jobs use the header.</p>
 </tbody>
 </table>
 <p>Build logs, metrics, and artifacts require the build owner or an <code>admin</code> /
-<code>admins</code> group member. Environment lifecycle, exec, and sync endpoints require
-the environment owner or an admin. Listing builds and environments remains
-available to all authenticated users.</p>
+<code>admins</code> group member. Environment lifecycle, exec, IDE, and sync endpoints
+require the environment owner or an admin. Listing builds and environments
+remains available to all authenticated users.</p>
+<p>The IDE proxy accepts the normal portal session cookie. It strips the
+<code>/api/envs/{id}/ide</code> prefix before forwarding to the <code>code-server</code> sidecar and
+preserves <code>Upgrade</code> headers for WebSocket traffic. The sidecar itself has
+authentication disabled and listens only on <code>127.0.0.1</code>, so it is reachable only
+through the authenticated portal proxy.</p>
 <h2 id="builds">Builds<a class="headerlink" href="#builds" title="Permanent link">&para;</a></h2>
 <h3 id="submit-a-git-build">Submit a Git build<a class="headerlink" href="#submit-a-git-build" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="err">POST /api/builds</span>

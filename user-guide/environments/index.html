@@ -946,6 +946,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#vs-code-in-the-browser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VS Code in the browser
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#idle-scale-down" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1471,6 +1482,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#vs-code-in-the-browser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        VS Code in the browser
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#idle-scale-down" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1585,6 +1607,10 @@ waiting for a new pod each time.</p>
 <td>Scales to 1, starts the sync client, and opens an interactive shell</td>
 </tr>
 <tr>
+<td><code>zeta code</code></td>
+<td>Starts the pod if needed and opens VS Code in the browser on <code>/workspace</code></td>
+</tr>
+<tr>
 <td><code>zeta deactivate</code></td>
 <td>Scales to 0 and drops the sync session</td>
 </tr>
@@ -1646,6 +1672,22 @@ the <code>exclude</code> list in <code>zeta.yaml</code>.</p>
 </code></pre></div>
 <p>Leaving the shell (<code>Ctrl-D</code> or <code>exit</code>) does <strong>not</strong> stop the environment. Run
 <code>zeta deactivate</code> explicitly when you are done, or let the idle reaper stop it.</p>
+<h2 id="vs-code-in-the-browser">VS Code in the browser<a class="headerlink" href="#vs-code-in-the-browser" title="Permanent link">&para;</a></h2>
+<p><code>zeta code</code> opens a browser IDE backed by the environment workspace:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>zeta<span class="w"> </span>code
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>zeta<span class="w"> </span>code<span class="w"> </span>--print<span class="w">        </span><span class="c1"># print the URL without launching a browser</span>
+</code></pre></div>
+<p>The portal authenticates the request, then reverse-proxies HTTP and WebSocket
+traffic to a <code>code-server</code> sidecar in the environment pod. The sidecar listens
+on <code>127.0.0.1:8080</code> and is never exposed by a Service or Ingress; the portal
+reaches it through the Kubernetes port-forward API. The browser URL is:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>http://&lt;portal&gt;/api/envs/&lt;id&gt;/ide/
+</code></pre></div>
+<p>The sidecar shares <code>/workspace</code> with the <code>env</code> container, so edits, builds, and
+terminals opened in VS Code see the same files as <code>zeta activate</code>. The IDE
+session is tied to the pod lifetime and is counted as activity by the idle
+reaper. <code>zeta code</code> adds the sidecar to an existing environment on first use;
+allow a short rollout while the new pod starts.</p>
 <h2 id="idle-scale-down">Idle scale-down<a class="headerlink" href="#idle-scale-down" title="Permanent link">&para;</a></h2>
 <p>To save compute, the portal scales an environment back to zero when no shell or
 sync client has been attached for <code>--env-idle-timeout</code>:</p>
@@ -1657,7 +1699,7 @@ sync client has been attached for <code>--env-idle-timeout</code>:</p>
 <li>the next <code>zeta activate</code> resumes quickly.</li>
 </ul>
 <p>The portal logs a line such as:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>env reaper: dev scaled to zero after 15m0s idle
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>env reaper: dev scaled to zero after 15m0s idle
 </code></pre></div>
 <h2 id="storage">Storage<a class="headerlink" href="#storage" title="Permanent link">&para;</a></h2>
 <table>
@@ -1689,11 +1731,11 @@ The volume is labeled <code>zeta.io/volume-role=env</code> and kept across
 <p><code>image</code> overrides the profile base image for this environment. <code>env</code> is merged
 with the profile environment; project values win by name.</p>
 <p>Example: profile <code>go</code> with a Python image for a one-off environment:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">py-playground</span>
-<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="nt">profile</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">go</span>
-<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zeta/python-uv:0.1</span>
-<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="nt">env</span><span class="p">:</span>
-<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">CUSTOM</span><span class="p">:</span><span class="w"> </span><span class="s">"yes"</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">py-playground</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nt">profile</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">go</span>
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="nt">image</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">zeta/python-uv:0.1</span>
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="nt">env</span><span class="p">:</span>
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">CUSTOM</span><span class="p">:</span><span class="w"> </span><span class="s">"yes"</span>
 </code></pre></div>
 <p>The deployment uses <code>zeta/python-uv:0.1</code> and keeps the profile's cache and
 resource settings.</p>
@@ -1701,7 +1743,7 @@ resource settings.</p>
 <p><code>zeta rm</code> deletes the Deployment, its pods, the sync Secret, and the PVC. The
 portal waits up to 45 seconds for pods and 60 seconds for the PVC. If the volume
 is still terminating, the request fails with:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>environment &lt;id&gt; was removed but its volume is still terminating
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>environment &lt;id&gt; was removed but its volume is still terminating
 </code></pre></div>
 <p>Retry after the volume finalizer completes.</p>
 <h2 id="limitations">Limitations<a class="headerlink" href="#limitations" title="Permanent link">&para;</a></h2>

@@ -2035,6 +2035,10 @@ automatically. A volume in use by a build cannot be resized or deleted.</p>
 <td><code>--name</code>, <code>--context</code>, <code>--exclude</code> (repeatable)</td>
 </tr>
 <tr>
+<td><code>zeta code</code></td>
+<td><code>--name</code>, <code>--context</code>, <code>--print</code></td>
+</tr>
+<tr>
 <td><code>zeta deactivate</code></td>
 <td><code>--name</code>, <code>--context</code></td>
 </tr>
@@ -2051,8 +2055,12 @@ automatically. A volume in use by a build cannot be resized or deleted.</p>
 <p>The name is resolved in this order: <code>--name</code> flag, <code>name</code> field in <code>zeta.yaml</code>,
 then the context directory name. It is normalized to a slug (lowercase letters,
 digits, and dashes, up to 40 characters).</p>
-<p><code>zeta init</code>, <code>activate</code>, <code>deactivate</code>, and <code>rm</code> read <code>zeta.yaml</code> from
+<p><code>zeta init</code>, <code>activate</code>, <code>code</code>, <code>deactivate</code>, and <code>rm</code> read <code>zeta.yaml</code> from
 <code>--context</code> (default <code>.</code>). Flags take precedence over the file.</p>
+<p><code>zeta code</code> starts the environment, enables the <code>code-server</code> sidecar if the
+environment predates it, and opens the authenticated browser IDE on
+<code>/workspace</code>. Use <code>--print</code> on headless machines and open the printed URL
+manually.</p>
 <p>See <a href="../environments/">Persistent environments</a> and
 <a href="../../reference/zeta-yaml/"><code>zeta.yaml</code> reference</a>.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>

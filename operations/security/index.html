@@ -688,6 +688,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#browser-ide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser IDE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#context-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1471,6 +1482,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#browser-ide" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Browser IDE
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#context-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1638,6 +1660,23 @@ policy.</p>
 </ul>
 <p>The portal itself runs as non-root <code>65532:65532</code> with a read-only root
 filesystem.</p>
+<h2 id="browser-ide">Browser IDE<a class="headerlink" href="#browser-ide" title="Permanent link">&para;</a></h2>
+<p>The <code>code-server</code> sidecar is part of the environment pod and shares
+<code>/workspace</code>. It binds to <code>127.0.0.1:8080</code>; no Service or Ingress exposes it.
+The browser reaches it only through <code>/api/envs/&lt;id&gt;/ide/</code> on the portal:</p>
+<ul>
+<li>the portal requires a valid session and checks environment ownership;</li>
+<li>the portal opens a Kubernetes port-forward (<code>pods/portforward</code>) to the pod;</li>
+<li>HTTP and WebSocket traffic is reverse-proxied, including the VS Code
+  extension-host socket;</li>
+<li>code-server authentication is disabled because the portal is the
+  authentication boundary;</li>
+<li>the port-forward is closed when the environment is deactivated, deleted, or
+  reaped;</li>
+<li>an open IDE WebSocket counts as activity and prevents idle scale-down.</li>
+</ul>
+<p>The portal service account therefore needs <code>get</code> and <code>create</code> on
+<code>pods/portforward</code> in the environment namespace.</p>
 <h2 id="context-validation">Context validation<a class="headerlink" href="#context-validation" title="Permanent link">&para;</a></h2>
 <p>The portal validates uploaded archives:</p>
 <ul>

@@ -938,6 +938,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#zeta-code-says-the-ide-is-not-ready" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        zeta code says the IDE is not ready
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#environment-stops-by-itself" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1937,6 +1948,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#zeta-code-says-the-ide-is-not-ready" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        zeta code says the IDE is not ready
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#environment-stops-by-itself" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2159,21 +2181,31 @@ container logs and the image entrypoint.</p>
 <li>Check <code>exclude</code> in <code>zeta.yaml</code> and <code>--exclude</code>.</li>
 <li>Confirm the sync session is still connected.</li>
 </ul>
+<h3 id="zeta-code-says-the-ide-is-not-ready"><code>zeta code</code> says the IDE is not ready<a class="headerlink" href="#zeta-code-says-the-ide-is-not-ready" title="Permanent link">&para;</a></h3>
+<p>The first <code>zeta code</code> call adds the <code>ide</code> sidecar to an existing environment and
+triggers a rollout. Wait for the new pod, then retry:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>pods<span class="w"> </span>-l<span class="w"> </span>zeta.io/env<span class="o">=</span>&lt;id&gt;
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>ide
+</code></pre></div>
+<p>If the pod stays <code>2/3</code>, check that <code>codercom/code-server:4.143.1</code> is present on
+the node (or pullable) and that the portal Role includes <code>pods/portforward</code>.
+The sidecar binds to <code>127.0.0.1:8080</code>, so a normal HTTP probe from kubelet cannot
+reach it; the portal waits for the container and opens a port-forward instead.</p>
 <h3 id="environment-stops-by-itself">Environment stops by itself<a class="headerlink" href="#environment-stops-by-itself" title="Permanent link">&para;</a></h3>
 <p>This is the idle reaper. Default <code>--env-idle-timeout</code> is <code>15m</code>; <code>0</code> disables it.
 Run <code>zeta activate</code> again to resume with the same volume.</p>
 <h3 id="rm-returns-504"><code>rm</code> returns <code>504</code><a class="headerlink" href="#rm-returns-504" title="Permanent link">&para;</a></h3>
 <p>The portal restarted during the request or the PVC is still terminating. Retry:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>zeta<span class="w"> </span>rm<span class="w"> </span>&lt;id&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>zeta<span class="w"> </span>rm<span class="w"> </span>&lt;id&gt;
 </code></pre></div>
 <p>If the PVC is stuck:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>pvc<span class="w"> </span>zeta-env-&lt;id&gt;
-<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>describe<span class="w"> </span>pvc<span class="w"> </span>zeta-env-&lt;id&gt;
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>pvc<span class="w"> </span>zeta-env-&lt;id&gt;
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>describe<span class="w"> </span>pvc<span class="w"> </span>zeta-env-&lt;id&gt;
 </code></pre></div>
 <h3 id="namespace-stuck-in-terminating">Namespace stuck in <code>Terminating</code><a class="headerlink" href="#namespace-stuck-in-terminating" title="Permanent link">&para;</a></h3>
 <p>Check for remaining namespaced resources and finalizers:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>get<span class="w"> </span>ns<span class="w"> </span>&lt;name&gt;<span class="w"> </span>-o<span class="w"> </span>yaml
-<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>&lt;name&gt;<span class="w"> </span>get<span class="w"> </span>all,pvc,secret,sa,role,rolebinding
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>get<span class="w"> </span>ns<span class="w"> </span>&lt;name&gt;<span class="w"> </span>-o<span class="w"> </span>yaml
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>&lt;name&gt;<span class="w"> </span>get<span class="w"> </span>all,pvc,secret,sa,role,rolebinding
 </code></pre></div>
 <p>Delete remaining workloads and PVCs, then wait for the namespace controller. As
 a last resort, clear the namespace finalizer through the <code>finalize</code> subresource.</p>
@@ -2188,21 +2220,21 @@ a last resort, clear the namespace finalizer through the <code>finalize</code> s
 <p>Check <code>zeta volumes</code> and raise <code>--volume-quota</code> / <code>--volume-max</code>, or delete an
 unused volume.</p>
 <h2 id="logs-and-debugging">Logs and debugging<a class="headerlink" href="#logs-and-debugging" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># Portal</span>
-<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-portal<span class="w"> </span>-f
-<a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-<a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Build pod</span>
-<a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>pods
-<a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>describe<span class="w"> </span>pod<span class="w"> </span>&lt;pod&gt;
-<a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>&lt;pod&gt;<span class="w"> </span>-c<span class="w"> </span>context
-<a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>&lt;pod&gt;<span class="w"> </span>-c<span class="w"> </span>build
-<a id="__codelineno-16-9" name="__codelineno-16-9" href="#__codelineno-16-9"></a>
-<a id="__codelineno-16-10" name="__codelineno-16-10" href="#__codelineno-16-10"></a><span class="c1"># Environment</span>
-<a id="__codelineno-16-11" name="__codelineno-16-11" href="#__codelineno-16-11"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>env
-<a id="__codelineno-16-12" name="__codelineno-16-12" href="#__codelineno-16-12"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>syncd
-<a id="__codelineno-16-13" name="__codelineno-16-13" href="#__codelineno-16-13"></a>
-<a id="__codelineno-16-14" name="__codelineno-16-14" href="#__codelineno-16-14"></a><span class="c1"># Events</span>
-<a id="__codelineno-16-15" name="__codelineno-16-15" href="#__codelineno-16-15"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>events<span class="w"> </span>--sort-by<span class="o">=</span>.lastTimestamp
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># Portal</span>
+<a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-portal<span class="w"> </span>-f
+<a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+<a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Build pod</span>
+<a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>pods
+<a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>describe<span class="w"> </span>pod<span class="w"> </span>&lt;pod&gt;
+<a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>&lt;pod&gt;<span class="w"> </span>-c<span class="w"> </span>context
+<a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>&lt;pod&gt;<span class="w"> </span>-c<span class="w"> </span>build
+<a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a>
+<a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="c1"># Environment</span>
+<a id="__codelineno-17-11" name="__codelineno-17-11" href="#__codelineno-17-11"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>env
+<a id="__codelineno-17-12" name="__codelineno-17-12" href="#__codelineno-17-12"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>syncd
+<a id="__codelineno-17-13" name="__codelineno-17-13" href="#__codelineno-17-13"></a>
+<a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a><span class="c1"># Events</span>
+<a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>events<span class="w"> </span>--sort-by<span class="o">=</span>.lastTimestamp
 </code></pre></div>
 
 
