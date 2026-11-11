@@ -40,6 +40,8 @@ func main() {
 		cmdBuild(os.Args[2:])
 	case "builds":
 		cmdBuilds(os.Args[2:])
+	case "board":
+		cmdBoard(os.Args[2:])
 	case "status":
 		cmdStatus(os.Args[2:])
 	case "logs":
@@ -94,6 +96,7 @@ Usage:
   zeta init [--name NAME] [--profile P] [--context DIR] [--size SIZE]
   zeta activate [--name NAME] [--context DIR] [--exclude PATTERN]
   zeta code [--name NAME] [--context DIR] [--print]
+  zeta board [--print]
   zeta share [--name NAME] [--context DIR] [--ttl 1h] [--label NAME]
   zeta share list [--name NAME] [--context DIR] [--json]
   zeta share revoke SHARE_ID [--name NAME] [--context DIR]
@@ -701,6 +704,22 @@ func cmdEnvCode(args []string) {
 	if err != nil {
 		fatalf("code: %v", err)
 	}
+	fmt.Println(url)
+	if *printOnly {
+		return
+	}
+	if err := openBrowser(url); err != nil {
+		fmt.Fprintf(os.Stderr, "open: %v\n", err)
+		fmt.Printf("ouvrez cette URL dans votre navigateur: %s\n", url)
+	}
+}
+
+func cmdBoard(args []string) {
+	fs := flag.NewFlagSet("board", flag.ExitOnError)
+	printOnly := fs.Bool("print", false, "print the URL without opening a browser")
+	_ = fs.Parse(args)
+	c := mustClient()
+	url := c.BaseURL
 	fmt.Println(url)
 	if *printOnly {
 		return
