@@ -1809,6 +1809,12 @@ an optional <code>code-server</code> sidecar for the browser IDE:</p>
 has no Service or Ingress. The portal authenticates <code>/api/envs/&lt;id&gt;/ide/</code>,
 opens a port-forward to the pod, and reverse-proxies HTTP and WebSocket traffic
 to <code>code-server</code>.</p>
+<p>The portal also keeps in-memory share links and connection presence. A share
+link is a random bearer token scoped to one environment and an expiry. Guest
+sessions created from it can use the IDE, exec, sync, and activation endpoints
+but not environment lifecycle or share management. Presence entries are created
+for long-lived IDE WebSockets, shells, and sync clients, and are exposed through
+<code>GET /api/envs</code> for the dashboard.</p>
 <p>The sync Secret is created by <code>zeta init</code> and reused by later activations. If the
 Secret is missing when the portal needs a session, it recreates it from the
 Deployment token.</p>

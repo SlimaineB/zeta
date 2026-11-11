@@ -1182,6 +1182,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#temporary-shares" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temporary shares
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1685,6 +1702,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Endpoints">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#temporary-shares" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temporary shares
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2169,6 +2203,26 @@ backward compatibility, but new environments and build Jobs use the header.</p>
 <td>Authenticated HTTP/WebSocket reverse proxy to code-server</td>
 </tr>
 <tr>
+<td><code>POST</code></td>
+<td><code>/api/envs/{id}/shares</code></td>
+<td>Create a temporary full-access share link</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/envs/{id}/shares</code></td>
+<td>List active share links and connected guests</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/envs/{id}/shares/{shareID}</code></td>
+<td>Revoke a share link</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/s/{token}</code></td>
+<td>Redeem a share link and set the guest cookie</td>
+</tr>
+<tr>
 <td><code>GET</code></td>
 <td><code>/healthz</code></td>
 <td>Health check</td>
@@ -2184,6 +2238,21 @@ remains available to all authenticated users.</p>
 preserves <code>Upgrade</code> headers for WebSocket traffic. The sidecar itself has
 authentication disabled and listens only on <code>127.0.0.1</code>, so it is reachable only
 through the authenticated portal proxy.</p>
+<h3 id="temporary-shares">Temporary shares<a class="headerlink" href="#temporary-shares" title="Permanent link">&para;</a></h3>
+<p><code>POST /api/envs/{id}/shares</code> accepts <code>{"ttl":"1h","label":"Alice"}</code> and returns
+the share ID, expiration, and one-time <code>url</code>. The link contains a random bearer
+token. <code>GET /s/{token}</code> validates the token, sets an HttpOnly <code>zeta_share</code>
+cookie, activates the environment if needed, and redirects to the IDE.</p>
+<p>A guest session is scoped to the shared environment. It can use <code>GET
+/api/envs/{id}/exec</code>, the IDE proxy, <code>GET /api/sync/{id}/client</code>, and
+<code>POST /api/envs/{id}/activate</code>. It cannot access builds, volumes, environment
+deletion/deactivation, or share management. <code>GET /api/envs</code> returns only the
+shared environment for a guest. <code>GET /api/envs</code> includes <code>connections</code> and, for
+the owner, <code>shares</code> with their connected participants.</p>
+<p>Shares expire after their TTL. Revocation removes the token, closes registered
+guest shell/sync sockets, and tears down the IDE proxy when a guest IDE session
+was attached. Shares are stored in portal memory and do not survive a portal
+restart.</p>
 <h2 id="builds">Builds<a class="headerlink" href="#builds" title="Permanent link">&para;</a></h2>
 <h3 id="submit-a-git-build">Submit a Git build<a class="headerlink" href="#submit-a-git-build" title="Permanent link">&para;</a></h3>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="err">POST /api/builds</span>

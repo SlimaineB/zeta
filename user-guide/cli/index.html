@@ -2039,6 +2039,18 @@ automatically. A volume in use by a build cannot be resized or deleted.</p>
 <td><code>--name</code>, <code>--context</code>, <code>--print</code></td>
 </tr>
 <tr>
+<td><code>zeta share</code></td>
+<td><code>--name</code>, <code>--context</code>, <code>--ttl</code>, <code>--label</code></td>
+</tr>
+<tr>
+<td><code>zeta share list</code></td>
+<td><code>--name</code>, <code>--context</code>, <code>--json</code></td>
+</tr>
+<tr>
+<td><code>zeta share revoke</code></td>
+<td><code>SHARE_ID</code>, <code>--name</code>, <code>--context</code></td>
+</tr>
+<tr>
 <td><code>zeta deactivate</code></td>
 <td><code>--name</code>, <code>--context</code></td>
 </tr>
@@ -2061,6 +2073,10 @@ digits, and dashes, up to 40 characters).</p>
 environment predates it, and opens the authenticated browser IDE on
 <code>/workspace</code>. Use <code>--print</code> on headless machines and open the printed URL
 manually.</p>
+<p><code>zeta share</code> creates a temporary link with full workspace access. The default
+lifetime is <code>1h</code>; use <code>--ttl</code> for another duration and <code>--label</code> to identify the
+guest in the dashboard. <code>zeta share list</code> shows active links and connected
+guests; <code>zeta share revoke SHARE_ID</code> invalidates a link immediately.</p>
 <p>See <a href="../environments/">Persistent environments</a> and
 <a href="../../reference/zeta-yaml/"><code>zeta.yaml</code> reference</a>.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>

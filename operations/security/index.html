@@ -699,6 +699,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#temporary-workspace-shares" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temporary workspace shares
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#context-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1493,6 +1504,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#temporary-workspace-shares" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Temporary workspace shares
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#context-validation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1677,6 +1699,22 @@ The browser reaches it only through <code>/api/envs/&lt;id&gt;/ide/</code> on th
 </ul>
 <p>The portal service account therefore needs <code>get</code> and <code>create</code> on
 <code>pods/portforward</code> in the environment namespace.</p>
+<h2 id="temporary-workspace-shares">Temporary workspace shares<a class="headerlink" href="#temporary-workspace-shares" title="Permanent link">&para;</a></h2>
+<p><code>zeta share</code> creates a bearer link with <strong>full workspace access</strong> for a limited
+time. Treat the link like a password:</p>
+<ul>
+<li>the token is stored only as a SHA-256 hash in portal memory;</li>
+<li>the guest cookie is HttpOnly and scoped to the portal;</li>
+<li>the link expires after the requested TTL (1 minute to 7 days);</li>
+<li>revoking it invalidates new requests immediately and closes registered guest
+  shell/sync sockets and the IDE proxy;</li>
+<li>guests cannot deactivate/delete the environment or manage shares;</li>
+<li>deactivating or deleting the environment revokes its shares;</li>
+<li>portal restarts invalidate all existing shares.</li>
+</ul>
+<p>The <code>/s/{token}</code> response sets <code>Cache-Control: no-store</code> and
+<code>Referrer-Policy: no-referrer</code> to reduce token leakage. Do not paste share links
+into public channels.</p>
 <h2 id="context-validation">Context validation<a class="headerlink" href="#context-validation" title="Permanent link">&para;</a></h2>
 <p>The portal validates uploaded archives:</p>
 <ul>

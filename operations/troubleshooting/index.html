@@ -949,6 +949,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#share-link-is-rejected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Share link is rejected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#environment-stops-by-itself" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1959,6 +1970,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#share-link-is-rejected" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Share link is rejected
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#environment-stops-by-itself" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2191,6 +2213,11 @@ triggers a rollout. Wait for the new pod, then retry:</p>
 the node (or pullable) and that the portal Role includes <code>pods/portforward</code>.
 The sidecar binds to <code>127.0.0.1:8080</code>, so a normal HTTP probe from kubelet cannot
 reach it; the portal waits for the container and opens a port-forward instead.</p>
+<h3 id="share-link-is-rejected">Share link is rejected<a class="headerlink" href="#share-link-is-rejected" title="Permanent link">&para;</a></h3>
+<p>A share link is invalid after its TTL, after <code>zeta share revoke</code>, after the
+environment is deactivated or deleted, or after a portal restart. Create a new
+link with <code>zeta share</code>. A guest that receives <code>401 not authenticated</code> should
+open the <code>/s/&lt;token&gt;</code> link again to refresh the guest cookie.</p>
 <h3 id="environment-stops-by-itself">Environment stops by itself<a class="headerlink" href="#environment-stops-by-itself" title="Permanent link">&para;</a></h3>
 <p>This is the idle reaper. Default <code>--env-idle-timeout</code> is <code>15m</code>; <code>0</code> disables it.
 Run <code>zeta activate</code> again to resume with the same volume.</p>
