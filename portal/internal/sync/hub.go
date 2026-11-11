@@ -19,13 +19,15 @@ type Hub struct {
 }
 
 type session struct {
-	id        string
-	token     string
-	agent     *websocket.Conn
-	client    *websocket.Conn
-	started   bool
-	done      chan struct{}
-	closeOnce sync.Once
+	id         string
+	token      string
+	agent      *websocket.Conn
+	client     *websocket.Conn
+	agentDone  chan struct{}
+	clientDone chan struct{}
+	started    bool
+	done       chan struct{}
+	closeOnce  sync.Once
 }
 
 func NewHub() *Hub {
@@ -171,17 +173,31 @@ func (h *Hub) AttachAgent(id, token string, conn *websocket.Conn) error {
 		return fmt.Errorf("token de session invalide")
 	}
 	if s.agent != nil {
-		h.mu.Unlock()
-		return fmt.Errorf("agent already connected")
+		if s.started {
+			h.mu.Unlock()
+			return fmt.Errorf("agent already connected")
+		}
+		if s.agentDone != nil {
+			close(s.agentDone)
+		}
+		_ = s.agent.Close()
+		s.agent = nil
+		s.agentDone = nil
 	}
 	s.agent = conn
-	start := s.agent != nil && s.client != nil && !s.started
+	s.agentDone = make(chan struct{})
+	start := s.client != nil && !s.started
 	if start {
 		s.started = true
 		go h.relay(s)
 	}
+	done := s.done
+	agentDone := s.agentDone
 	h.mu.Unlock()
-	<-s.done
+	select {
+	case <-done:
+	case <-agentDone:
+	}
 	return nil
 }
 
@@ -193,17 +209,31 @@ func (h *Hub) AttachClient(id string, conn *websocket.Conn) error {
 		return fmt.Errorf("session inconnue")
 	}
 	if s.client != nil {
-		h.mu.Unlock()
-		return fmt.Errorf("client already connected")
+		if s.started {
+			h.mu.Unlock()
+			return fmt.Errorf("client already connected")
+		}
+		if s.clientDone != nil {
+			close(s.clientDone)
+		}
+		_ = s.client.Close()
+		s.client = nil
+		s.clientDone = nil
 	}
 	s.client = conn
-	start := s.agent != nil && s.client != nil && !s.started
+	s.clientDone = make(chan struct{})
+	start := s.agent != nil && !s.started
 	if start {
 		s.started = true
 		go h.relay(s)
 	}
+	done := s.done
+	clientDone := s.clientDone
 	h.mu.Unlock()
-	<-s.done
+	select {
+	case <-done:
+	case <-clientDone:
+	}
 	return nil
 }
 
@@ -217,7 +247,7 @@ func (h *Hub) relay(s *session) {
 
 func pipe(dst, src *websocket.Conn) error {
 	for {
-		var msg string
+		var msg []byte
 		if err := websocket.Message.Receive(src, &msg); err != nil {
 			return err
 		}

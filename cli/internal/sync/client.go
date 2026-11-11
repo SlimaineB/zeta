@@ -24,8 +24,10 @@ type Session struct {
 
 	readyOnce   sync.Once
 	flushedOnce sync.Once
+	helloOnce   sync.Once
 	ready       chan struct{}
 	flushed     chan struct{}
+	hello       chan struct{}
 	errs        chan error
 	cancel      context.CancelFunc
 	closeOnce   sync.Once
@@ -40,6 +42,7 @@ func StartClient(ctx context.Context, opts ClientOptions) (*Session, error) {
 		_ = conn.Close()
 		return nil, err
 	}
+	parent := ctx
 	ctx, cancel := context.WithCancel(ctx)
 	s := &Session{
 		conn:      conn,
@@ -47,10 +50,36 @@ func StartClient(ctx context.Context, opts ClientOptions) (*Session, error) {
 		artifacts: NewSyncer(opts.Artifacts, ScopeArtifacts, opts.ArtifactIgnore, conn),
 		ready:     make(chan struct{}),
 		flushed:   make(chan struct{}),
+		hello:     make(chan struct{}),
 		errs:      make(chan error, 1),
 		cancel:    cancel,
 	}
 	go s.receiveLoop()
+	if err := s.conn.Send(Message{Type: "hello", Version: 2}); err != nil {
+		cancel()
+		_ = conn.Close()
+		return nil, err
+	}
+	helloCtx, cancelHello := context.WithTimeout(ctx, 20*time.Second)
+	select {
+	case <-helloCtx.Done():
+		cancelHello()
+		cancel()
+		_ = conn.Close()
+		if err := parent.Err(); err != nil {
+			return nil, err
+		}
+		return nil, fmt.Errorf("agent de synchronisation indisponible ou obsolète; recréez l'environnement")
+	case err := <-s.errs:
+		cancelHello()
+		cancel()
+		_ = conn.Close()
+		return nil, err
+	case <-s.hello:
+		cancelHello()
+	}
+	s.workspace.Chunked = true
+	s.artifacts.Chunked = true
 	if err := s.workspace.SendInitial(); err != nil {
 		cancel()
 		_ = conn.Close()
@@ -68,7 +97,12 @@ func (s *Session) receiveLoop() {
 			return
 		}
 		switch msg.Type {
-		case "file", "dir", "symlink", "delete":
+		case "hello":
+			if msg.Version >= 2 {
+				s.helloOnce.Do(func() { close(s.hello) })
+				_ = s.conn.Send(Message{Type: "hello", Version: 2})
+			}
+		case "file", "file-chunk", "dir", "symlink", "delete":
 			switch msg.Scope {
 			case ScopeWorkspace:
 				if err := s.workspace.Apply(msg); err != nil {
@@ -86,6 +120,7 @@ func (s *Session) receiveLoop() {
 		case "flushed":
 			s.flushedOnce.Do(func() { close(s.flushed) })
 		case "error":
+			fmt.Fprintf(os.Stderr, "sync: agent: %s\n", msg.Error)
 			s.fail(fmt.Errorf("agent: %s", msg.Error))
 			return
 		case "bye":
@@ -147,6 +182,8 @@ func (s *Session) Close() error {
 	s.closeOnce.Do(func() {
 		_ = s.conn.Send(Message{Type: "bye"})
 		s.cancel()
+		_ = s.workspace.Close()
+		_ = s.artifacts.Close()
 		err = s.conn.Close()
 	})
 	return err

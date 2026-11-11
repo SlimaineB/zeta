@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"bytes"
 	"encoding/base64"
 	"os"
 	"path/filepath"
@@ -117,5 +118,107 @@ func TestWebsocketOrigin(t *testing.T) {
 	}
 	if _, err := websocketOrigin("http://"); err == nil {
 		t.Fatal("expected invalid URL error")
+	}
+}
+
+func TestChunkedFileRoundTrip(t *testing.T) {
+	source := t.TempDir()
+	data := bytes.Repeat([]byte("0123456789abcdef"), 400000)
+	if err := os.WriteFile(filepath.Join(source, "big.bin"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := &memTransport{}
+	sender := NewSyncer(source, ScopeWorkspace, nil, tr)
+	sender.Chunked = true
+	if err := sender.SendInitial(); err != nil {
+		t.Fatal(err)
+	}
+	var chunks int
+	for _, msg := range tr.sent {
+		if msg.Type != "file-chunk" {
+			continue
+		}
+		chunks++
+		if msg.Data != "" {
+			t.Fatal("un chunk ne doit pas contenir de données base64")
+		}
+	}
+	if chunks < 2 {
+		t.Fatalf("chunks = %d, attendu plusieurs chunks", chunks)
+	}
+	target := t.TempDir()
+	receiver := NewSyncer(target, ScopeWorkspace, nil, &memTransport{})
+	for _, msg := range tr.sent {
+		if msg.Type == "file-chunk" {
+			if err := receiver.Apply(msg); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	got, err := os.ReadFile(filepath.Join(target, "big.bin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(got, data) {
+		t.Fatalf("contenu reçu différent: %d octets au lieu de %d", len(got), len(data))
+	}
+	receiver.mu.Lock()
+	hash := receiver.state["big.bin"].Hash
+	receiver.mu.Unlock()
+	if hash != hashBytes(data) {
+		t.Fatalf("hash = %q, attendu %q", hash, hashBytes(data))
+	}
+}
+
+func TestChunkEncoding(t *testing.T) {
+	msg := Message{
+		Type:   "file-chunk",
+		Scope:  ScopeWorkspace,
+		Path:   "a/b.bin",
+		Mode:   0o644,
+		Offset: 1048576,
+		Total:  2097152,
+		Hash:   "abc",
+		Eof:    true,
+		Chunk:  []byte("payload"),
+	}
+	raw, err := marshalChunk(msg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := unmarshalChunk(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Path != msg.Path || got.Offset != msg.Offset || got.Total != msg.Total || got.Hash != msg.Hash || got.Eof != msg.Eof || !bytes.Equal(got.Chunk, msg.Chunk) {
+		t.Fatalf("chunk décodé = %+v", got)
+	}
+}
+
+func TestLegacyLargeFileUsesSingleMessage(t *testing.T) {
+	source := t.TempDir()
+	data := bytes.Repeat([]byte("legacy"), 50000)
+	if err := os.WriteFile(filepath.Join(source, "big.bin"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	tr := &memTransport{}
+	sender := NewSyncer(source, ScopeWorkspace, nil, tr)
+	if err := sender.SendInitial(); err != nil {
+		t.Fatal(err)
+	}
+	var files int
+	for _, msg := range tr.sent {
+		if msg.Type == "file-chunk" {
+			t.Fatal("un agent legacy ne doit pas recevoir de chunks")
+		}
+		if msg.Type == "file" && msg.Path == "big.bin" {
+			files++
+			if msg.Data == "" {
+				t.Fatal("fichier legacy sans données base64")
+			}
+		}
+	}
+	if files != 1 {
+		t.Fatalf("messages file = %d, attendu 1", files)
 	}
 }

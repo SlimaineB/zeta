@@ -607,9 +607,6 @@ func (s *Server) RunIdleReaper(ctx context.Context, timeout time.Duration) {
 }
 
 func (s *Server) ensureEnvSession(ctx context.Context, id string) {
-	if s.sync.Has(id) {
-		return
-	}
 	if token, err := s.builds.EnvironmentToken(ctx, id); err == nil {
 		s.sync.Ensure(id, token)
 	}
@@ -628,7 +625,9 @@ func (s *Server) syncAgent(w http.ResponseWriter, r *http.Request) {
 	s.ensureEnvSession(r.Context(), id)
 	serveWebSocket(w, r, func(ws *websocket.Conn) {
 		defer ws.Close()
-		_ = s.sync.AttachAgent(id, token, ws)
+		if err := s.sync.AttachAgent(id, token, ws); err != nil {
+			log.Printf("sync agent %s: %v", id, err)
+		}
 	}, false)
 }
 
@@ -642,7 +641,9 @@ func (s *Server) syncClient(w http.ResponseWriter, r *http.Request) {
 		defer ws.Close()
 		s.sync.BeginClient(id)
 		defer s.sync.EndClient(id)
-		_ = s.sync.AttachClient(id, ws)
+		if err := s.sync.AttachClient(id, ws); err != nil {
+			log.Printf("sync client %s: %v", id, err)
+		}
 	}, true)
 }
 

@@ -4,9 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -22,18 +24,27 @@ import (
 const (
 	ScopeWorkspace = "workspace"
 	ScopeArtifacts = "artifacts"
+
+	chunkMagic     = byte(0x5a)
+	fileChunkSize  = 1 << 20
+	chunkThreshold = 256 << 10
 )
 
 type Message struct {
-	Type  string `json:"type"`
-	Scope string `json:"scope,omitempty"`
-	Path  string `json:"path,omitempty"`
-	Link  string `json:"link,omitempty"`
-	Mode  uint32 `json:"mode,omitempty"`
-	Size  int64  `json:"size,omitempty"`
-	Hash  string `json:"hash,omitempty"`
-	Data  string `json:"data,omitempty"`
-	Error string `json:"error,omitempty"`
+	Type    string `json:"type"`
+	Scope   string `json:"scope,omitempty"`
+	Path    string `json:"path,omitempty"`
+	Link    string `json:"link,omitempty"`
+	Mode    uint32 `json:"mode,omitempty"`
+	Size    int64  `json:"size,omitempty"`
+	Hash    string `json:"hash,omitempty"`
+	Data    string `json:"data,omitempty"`
+	Error   string `json:"error,omitempty"`
+	Version int    `json:"version,omitempty"`
+	Offset  int64  `json:"-"`
+	Total   int64  `json:"-"`
+	Eof     bool   `json:"-"`
+	Chunk   []byte `json:"-"`
 }
 
 type Transport interface {
@@ -86,25 +97,93 @@ func websocketOrigin(rawURL string) (string, error) {
 }
 
 func (c *WSConn) Send(msg Message) error {
-	data, err := json.Marshal(msg)
+	var data []byte
+	var err error
+	if msg.Type == "file-chunk" {
+		data, err = marshalChunk(msg)
+	} else {
+		data, err = json.Marshal(msg)
+	}
 	if err != nil {
 		return err
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return websocket.Message.Send(c.ws, string(data))
+	return websocket.Message.Send(c.ws, data)
 }
 
 func (c *WSConn) Receive() (Message, error) {
-	var raw string
+	var raw []byte
 	if err := websocket.Message.Receive(c.ws, &raw); err != nil {
 		return Message{}, err
 	}
+	if len(raw) > 0 && raw[0] == chunkMagic {
+		return unmarshalChunk(raw)
+	}
 	var msg Message
-	if err := json.Unmarshal([]byte(raw), &msg); err != nil {
+	if err := json.Unmarshal(raw, &msg); err != nil {
 		return Message{}, err
 	}
 	return msg, nil
+}
+
+type chunkHeader struct {
+	Scope  string `json:"scope"`
+	Path   string `json:"path"`
+	Offset int64  `json:"offset"`
+	Size   int64  `json:"size"`
+	Mode   uint32 `json:"mode"`
+	Hash   string `json:"hash"`
+	Eof    bool   `json:"eof"`
+}
+
+func marshalChunk(msg Message) ([]byte, error) {
+	header, err := json.Marshal(chunkHeader{
+		Scope:  msg.Scope,
+		Path:   msg.Path,
+		Offset: msg.Offset,
+		Size:   msg.Total,
+		Mode:   msg.Mode,
+		Hash:   msg.Hash,
+		Eof:    msg.Eof,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if uint64(len(header)) > uint64(^uint32(0)) {
+		return nil, fmt.Errorf("entête de chunk trop volumineuse")
+	}
+	buf := make([]byte, 1+4+len(header)+len(msg.Chunk))
+	buf[0] = chunkMagic
+	binary.BigEndian.PutUint32(buf[1:5], uint32(len(header)))
+	copy(buf[5:], header)
+	copy(buf[5+len(header):], msg.Chunk)
+	return buf, nil
+}
+
+func unmarshalChunk(raw []byte) (Message, error) {
+	if len(raw) < 5 {
+		return Message{}, fmt.Errorf("chunk invalide")
+	}
+	n := int(binary.BigEndian.Uint32(raw[1:5]))
+	if n > len(raw)-5 {
+		return Message{}, fmt.Errorf("entête de chunk invalide")
+	}
+	var header chunkHeader
+	if err := json.Unmarshal(raw[5:5+n], &header); err != nil {
+		return Message{}, err
+	}
+	return Message{
+		Type:   "file-chunk",
+		Scope:  header.Scope,
+		Path:   header.Path,
+		Offset: header.Offset,
+		Total:  header.Size,
+		Mode:   header.Mode,
+		Hash:   header.Hash,
+		Eof:    header.Eof,
+		Chunk:  raw[5+n:],
+	}, nil
 }
 
 func (c *WSConn) Close() error {
@@ -140,12 +219,49 @@ type Syncer struct {
 	Ignore    []string
 	Transport Transport
 
-	mu    sync.Mutex
-	state map[string]FileInfo
+	mu      sync.Mutex
+	state   map[string]FileInfo
+	chunks  map[string]*chunkState
+	Chunked bool
+}
+
+type chunkState struct {
+	file   *os.File
+	tmp    string
+	target string
+	offset int64
+	mode   uint32
+	hash   string
 }
 
 func NewSyncer(root, scope string, ignore []string, transport Transport) *Syncer {
-	return &Syncer{Root: root, Scope: scope, Ignore: ignore, Transport: transport, state: map[string]FileInfo{}}
+	return &Syncer{
+		Root:      root,
+		Scope:     scope,
+		Ignore:    ignore,
+		Transport: transport,
+		state:     map[string]FileInfo{},
+		chunks:    map[string]*chunkState{},
+	}
+}
+
+func (s *Syncer) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for key := range s.chunks {
+		s.dropChunk(key)
+	}
+	return nil
+}
+
+func (s *Syncer) dropChunk(key string) {
+	st := s.chunks[key]
+	if st == nil {
+		return
+	}
+	_ = st.file.Close()
+	_ = os.Remove(st.tmp)
+	delete(s.chunks, key)
 }
 
 func (s *Syncer) scan() (map[string]FileInfo, error) {
@@ -279,12 +395,15 @@ func (s *Syncer) Apply(msg Message) error {
 		return err
 	}
 	switch msg.Type {
+	case "file-chunk":
+		return s.applyFileChunk(target, msg)
 	case "dir":
 		if err := os.MkdirAll(target, os.FileMode(msg.Mode)&os.ModePerm); err != nil {
 			return err
 		}
 		s.state[msg.Path] = FileInfo{Path: msg.Path, Kind: "dir", Mode: msg.Mode, Hash: "dir"}
 	case "file":
+		s.dropChunk(msg.Path)
 		data, err := base64.StdEncoding.DecodeString(msg.Data)
 		if err != nil {
 			return fmt.Errorf("contenu invalide pour %s: %w", msg.Path, err)
@@ -331,6 +450,7 @@ func (s *Syncer) Apply(msg Message) error {
 		}
 		s.state[msg.Path] = FileInfo{Path: msg.Path, Kind: "symlink", Link: msg.Link, Mode: msg.Mode, Hash: hashString("link:" + msg.Link)}
 	case "delete":
+		s.dropChunk(msg.Path)
 		if err := os.RemoveAll(target); err != nil && !os.IsNotExist(err) {
 			return err
 		}
@@ -339,7 +459,65 @@ func (s *Syncer) Apply(msg Message) error {
 	return nil
 }
 
+func (s *Syncer) applyFileChunk(target string, msg Message) error {
+	if msg.Offset == 0 {
+		s.dropChunk(msg.Path)
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		tmp, err := os.CreateTemp(filepath.Dir(target), ".zeta-sync-*")
+		if err != nil {
+			return err
+		}
+		if err := tmp.Chmod(os.FileMode(msg.Mode) & os.ModePerm); err != nil {
+			_ = tmp.Close()
+			_ = os.Remove(tmp.Name())
+			return err
+		}
+		s.chunks[msg.Path] = &chunkState{
+			file:   tmp,
+			tmp:    tmp.Name(),
+			target: target,
+			mode:   msg.Mode,
+			hash:   msg.Hash,
+		}
+	}
+	st := s.chunks[msg.Path]
+	if st == nil {
+		return fmt.Errorf("chunk sans début pour %s", msg.Path)
+	}
+	if msg.Offset != st.offset {
+		s.dropChunk(msg.Path)
+		return fmt.Errorf("chunk hors séquence pour %s: offset %d, attendu %d", msg.Path, msg.Offset, st.offset)
+	}
+	if len(msg.Chunk) > 0 {
+		if _, err := st.file.Write(msg.Chunk); err != nil {
+			s.dropChunk(msg.Path)
+			return err
+		}
+		st.offset += int64(len(msg.Chunk))
+	}
+	if !msg.Eof {
+		return nil
+	}
+	if err := st.file.Close(); err != nil {
+		s.dropChunk(msg.Path)
+		return err
+	}
+	if err := os.Rename(st.tmp, st.target); err != nil {
+		_ = os.Remove(st.tmp)
+		delete(s.chunks, msg.Path)
+		return err
+	}
+	delete(s.chunks, msg.Path)
+	s.state[msg.Path] = FileInfo{Path: msg.Path, Kind: "file", Mode: st.mode, Size: st.offset, Hash: st.hash}
+	return nil
+}
+
 func (s *Syncer) sendFile(f FileInfo) error {
+	if s.Chunked && f.Kind == "file" && f.Size > chunkThreshold {
+		return s.sendFileChunks(f)
+	}
 	msg := Message{Type: f.Kind, Scope: s.Scope, Path: f.Path, Link: f.Link, Mode: f.Mode, Size: f.Size, Hash: f.Hash}
 	if f.Kind == "file" {
 		target, err := safeJoin(s.Root, f.Path)
@@ -353,6 +531,84 @@ func (s *Syncer) sendFile(f FileInfo) error {
 		msg.Data = base64.StdEncoding.EncodeToString(data)
 	}
 	return s.Transport.Send(msg)
+}
+
+func (s *Syncer) sendFileChunks(f FileInfo) error {
+	target, err := safeJoin(s.Root, f.Path)
+	if err != nil {
+		return err
+	}
+	file, err := os.Open(target)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return err
+	}
+	size := info.Size()
+	if size <= chunkThreshold {
+		data, err := io.ReadAll(file)
+		if err != nil {
+			return err
+		}
+		return s.Transport.Send(Message{
+			Type:  "file",
+			Scope: s.Scope,
+			Path:  f.Path,
+			Mode:  f.Mode,
+			Size:  int64(len(data)),
+			Hash:  f.Hash,
+			Data:  base64.StdEncoding.EncodeToString(data),
+		})
+	}
+	buf := make([]byte, fileChunkSize)
+	var offset int64
+	for offset < size {
+		want := int64(len(buf))
+		if remaining := size - offset; remaining < want {
+			want = remaining
+		}
+		n, readErr := io.ReadFull(file, buf[:want])
+		if n > 0 {
+			chunk := make([]byte, n)
+			copy(chunk, buf[:n])
+			eof := offset+int64(n) == size
+			msg := Message{
+				Type:   "file-chunk",
+				Scope:  s.Scope,
+				Path:   f.Path,
+				Mode:   f.Mode,
+				Size:   size,
+				Hash:   f.Hash,
+				Offset: offset,
+				Total:  size,
+				Eof:    eof,
+				Chunk:  chunk,
+			}
+			if err := s.Transport.Send(msg); err != nil {
+				return err
+			}
+			offset += int64(n)
+		}
+		if readErr != nil && readErr != io.EOF && readErr != io.ErrUnexpectedEOF {
+			return readErr
+		}
+	}
+	if offset == 0 {
+		return s.Transport.Send(Message{
+			Type:  "file-chunk",
+			Scope: s.Scope,
+			Path:  f.Path,
+			Mode:  f.Mode,
+			Size:  size,
+			Hash:  f.Hash,
+			Total: size,
+			Eof:   true,
+		})
+	}
+	return nil
 }
 
 func safeJoin(root, rel string) (string, error) {

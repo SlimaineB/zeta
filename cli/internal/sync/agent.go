@@ -20,11 +20,16 @@ type AgentOptions struct {
 }
 
 func RunAgent(ctx context.Context, opts AgentOptions) error {
-	conn, err := DialAuth(ctx, opts.URL, "", opts.Token)
+	dialCtx, cancelDial := context.WithTimeout(ctx, 10*time.Second)
+	conn, err := DialAuth(dialCtx, opts.URL, "", opts.Token)
+	cancelDial()
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
+	if err := conn.Send(Message{Type: "hello", Version: 2}); err != nil {
+		return err
+	}
 
 	baseExcludes := contexttar.DefaultExcludes()
 	if opts.Env {
@@ -32,9 +37,11 @@ func RunAgent(ctx context.Context, opts AgentOptions) error {
 	}
 	workspaceIgnore := append(baseExcludes, opts.Ignore...)
 	workspace := NewSyncer(opts.Workspace, ScopeWorkspace, workspaceIgnore, conn)
+	defer workspace.Close()
 	var artifacts *Syncer
 	if opts.Artifacts != "" {
 		artifacts = NewSyncer(opts.Artifacts, ScopeArtifacts, nil, conn)
+		defer artifacts.Close()
 	}
 
 	msgs := make(chan Message)
@@ -61,7 +68,14 @@ func RunAgent(ctx context.Context, opts AgentOptions) error {
 			return err
 		case msg := <-msgs:
 			switch msg.Type {
-			case "file", "dir", "symlink", "delete":
+			case "hello":
+				if msg.Version >= 2 {
+					workspace.Chunked = true
+					if artifacts != nil {
+						artifacts.Chunked = true
+					}
+				}
+			case "file", "file-chunk", "dir", "symlink", "delete":
 				if msg.Scope == ScopeWorkspace {
 					if err := workspace.Apply(msg); err != nil {
 						_ = conn.Send(Message{Type: "error", Error: err.Error()})

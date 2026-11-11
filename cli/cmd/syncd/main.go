@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"zeta/cli/internal/sync"
 )
@@ -21,7 +22,28 @@ func main() {
 	envMode := os.Getenv("ZETA_SYNC_ENV") == "1"
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	if err := sync.RunAgent(ctx, sync.AgentOptions{URL: url, Token: token, Workspace: workspace, Artifacts: artifacts, Env: envMode}); err != nil && ctx.Err() == nil {
-		log.Fatal(err)
+	opts := sync.AgentOptions{URL: url, Token: token, Workspace: workspace, Artifacts: artifacts, Env: envMode}
+	delay := time.Second
+	for {
+		started := time.Now()
+		err := sync.RunAgent(ctx, opts)
+		if ctx.Err() != nil {
+			return
+		}
+		if time.Since(started) > 30*time.Second {
+			delay = time.Second
+		}
+		log.Printf("sync: %v; reconnexion dans %s", err, delay)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+		}
+		if delay < 10*time.Second {
+			delay *= 2
+			if delay > 10*time.Second {
+				delay = 10 * time.Second
+			}
+		}
 	}
 }
