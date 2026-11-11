@@ -90,12 +90,20 @@ Errors use a JSON body:
 | `POST` | `/api/envs/{id}/deactivate` | Stop an environment |
 | `DELETE` | `/api/envs/{id}` | Delete an environment and its volume |
 | `GET` | `/api/envs/{id}/exec` | Interactive exec WebSocket |
+| `POST` | `/api/envs/{id}/ide` | Enable the IDE sidecar and return the browser URL |
+| `GET` | `/api/envs/{id}/ide/` | Authenticated HTTP/WebSocket reverse proxy to code-server |
 | `GET` | `/healthz` | Health check |
 
 Build logs, metrics, and artifacts require the build owner or an `admin` /
-`admins` group member. Environment lifecycle, exec, and sync endpoints require
-the environment owner or an admin. Listing builds and environments remains
-available to all authenticated users.
+`admins` group member. Environment lifecycle, exec, IDE, and sync endpoints
+require the environment owner or an admin. Listing builds and environments
+remains available to all authenticated users.
+
+The IDE proxy accepts the normal portal session cookie. It strips the
+`/api/envs/{id}/ide` prefix before forwarding to the `code-server` sidecar and
+preserves `Upgrade` headers for WebSocket traffic. The sidecar itself has
+authentication disabled and listens only on `127.0.0.1`, so it is reachable only
+through the authenticated portal proxy.
 
 ## Builds
 

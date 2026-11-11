@@ -47,6 +47,9 @@ ghcr.io/owner/zeta/git-server:0.1.0
 | `portal.securityContext` | read-only root, no caps | Container security context |
 | `portal.extraArgs` | `[]` | Extra portal flags |
 | `portal.extraEnv` | `[]` | Extra portal environment variables |
+| `ide.enabled` | `true` | Add the browser IDE sidecar to environment pods |
+| `ide.image.repository` | `codercom/code-server` | Pinned code-server image repository |
+| `ide.image.tag` | `4.143.1` | Pinned code-server image tag |
 | `service.type` | `ClusterIP` | Service type |
 | `service.port` | `80` | Service port |
 

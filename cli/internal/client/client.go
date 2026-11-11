@@ -328,6 +328,27 @@ func (c *Client) EnvExecURL(id string) (string, error) {
 	return c.wsURL("/api/envs/" + url.PathEscape(id) + "/exec")
 }
 
+func (c *Client) EnableEnvIDE(ctx context.Context, id string) (string, error) {
+	res, err := c.request(ctx, http.MethodPost, "/api/envs/"+url.PathEscape(id)+"/ide", map[string]any{})
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+	var out struct {
+		URL string `json:"url"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return "", err
+	}
+	if out.URL == "" {
+		return "", fmt.Errorf("URL IDE absente")
+	}
+	if strings.HasPrefix(out.URL, "/") {
+		return c.BaseURL + out.URL, nil
+	}
+	return out.URL, nil
+}
+
 func (c *Client) StreamArtifact(ctx context.Context, id string, w io.Writer) error {
 	res, err := c.request(ctx, http.MethodGet, "/api/builds/"+url.PathEscape(id)+"/artifact", nil)
 	if err != nil {

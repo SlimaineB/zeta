@@ -438,3 +438,52 @@ func TestListAndDeleteEnvironment(t *testing.T) {
 		t.Fatalf("expected pvc gone, got %v", err)
 	}
 }
+
+func TestEnsureEnvironmentAddsIDE(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	r := &Repository{core: cs.CoreV1(), apps: cs.AppsV1(), namespace: "test", storageClass: "local-path", ideImage: "codercom/code-server:4.143.1"}
+	profile := domain.Profile{Name: "go", Image: "zeta/go:0.1", WorkDir: "/workspace", CachePVC: "shared-cache"}
+	if _, err := r.EnsureEnvironment(context.Background(), domain.EnvSpec{ID: "dev", Profile: profile, Token: "tok"}); err != nil {
+		t.Fatal(err)
+	}
+	dep, err := cs.AppsV1().Deployments("test").Get(context.Background(), envDeployName("dev"), metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dep.Spec.Template.Spec.Containers) != 3 {
+		t.Fatalf("expected 3 containers, got %d", len(dep.Spec.Template.Spec.Containers))
+	}
+	ide := dep.Spec.Template.Spec.Containers[2]
+	if ide.Name != ideContainerName || ide.Image != "codercom/code-server:4.143.1" {
+		t.Fatalf("unexpected IDE container: %+v", ide)
+	}
+	foundWorkspace := false
+	for _, mount := range ide.VolumeMounts {
+		if mount.Name == "workspace" && mount.MountPath == "/workspace" {
+			foundWorkspace = true
+		}
+	}
+	if !foundWorkspace {
+		t.Fatal("IDE container does not mount the workspace")
+	}
+}
+
+func TestEnsureEnvironmentIDEAddsMissingSidecar(t *testing.T) {
+	cs := fake.NewSimpleClientset()
+	r := &Repository{core: cs.CoreV1(), apps: cs.AppsV1(), namespace: "test", storageClass: "local-path"}
+	profile := domain.Profile{Name: "go", Image: "zeta/go:0.1"}
+	if _, err := r.EnsureEnvironment(context.Background(), domain.EnvSpec{ID: "dev", Profile: profile, Token: "tok"}); err != nil {
+		t.Fatal(err)
+	}
+	r.ideImage = "codercom/code-server:4.143.1"
+	if err := r.EnsureEnvironmentIDE(context.Background(), "dev"); err != nil {
+		t.Fatal(err)
+	}
+	dep, err := cs.AppsV1().Deployments("test").Get(context.Background(), envDeployName("dev"), metav1.GetOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(dep.Spec.Template.Spec.Containers) != 3 {
+		t.Fatalf("expected 3 containers after enabling IDE, got %d", len(dep.Spec.Template.Spec.Containers))
+	}
+}

@@ -92,7 +92,8 @@ The web UI is a monitoring dashboard, not a build form.
   Git commit when you need an auditable revision.
 - **Interactive debugging.** `--sync` mirrors your local code into the build pod
   and brings produced files back.
-- **Persistent dev environments.** `zeta activate` opens a shell in a pod that
+- **Persistent dev environments.** `zeta activate` opens a shell and `zeta code`
+  opens VS Code in the browser, both backed by the same pod that
   stays available between commands, backed by a persistent volume.
 - **Extensible.** A new language is a YAML profile plus an image, not a control
   plane change.

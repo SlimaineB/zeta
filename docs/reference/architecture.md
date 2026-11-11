@@ -121,19 +121,27 @@ Security:
 
 ## Environment anatomy
 
-An environment is a Deployment named `zeta-env-<id>` with two containers:
+An environment is a Deployment named `zeta-env-<id>` with two containers, plus
+an optional `code-server` sidecar for the browser IDE:
 
 ```text
 Deployment zeta-env-<id> (replicas 0 or 1)
   |- env   : profile image, command "sleep infinity", workingDir /workspace
   |          mounts: /workspace (PVC zeta-env-<id>), /cache (shared cache PVC)
-  `- syncd : image zeta/portal:0.1, command /syncd
-             env: ZETA_SYNC_TOKEN (Secret zeta-env-<id>-sync),
-                  ZETA_SYNC_URL=ws://zeta-portal/api/sync/<id>/agent,
-                  ZETA_WORKSPACE=/workspace,
-                  ZETA_SYNC_ENV=1
-             mounts: /workspace
+  |- syncd : image zeta/portal:0.1, command /syncd
+  |          env: ZETA_SYNC_TOKEN (Secret zeta-env-<id>-sync),
+  |               ZETA_SYNC_URL=ws://zeta-portal/api/sync/<id>/agent,
+  |               ZETA_WORKSPACE=/workspace,
+  |               ZETA_SYNC_ENV=1
+  |          mounts: /workspace
+  `- ide   : image codercom/code-server:<pinned>, listens on 127.0.0.1:8080
+             mounts: /workspace, ephemeral /home/coder
 ```
+
+The `ide` container is added when the portal has `--ide-image` configured. It
+has no Service or Ingress. The portal authenticates `/api/envs/<id>/ide/`,
+opens a port-forward to the pod, and reverse-proxies HTTP and WebSocket traffic
+to `code-server`.
 
 The sync Secret is created by `zeta init` and reused by later activations. If the
 Secret is missing when the portal needs a session, it recreates it from the

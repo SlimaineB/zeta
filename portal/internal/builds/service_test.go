@@ -93,6 +93,10 @@ func (f *fakeRepo) EnvironmentToken(context.Context, string) (string, error)    
 func (f *fakeRepo) ExecEnvironment(context.Context, string, domain.ExecOptions) error {
 	return nil
 }
+func (f *fakeRepo) EnsureEnvironmentIDE(context.Context, string) error { return nil }
+func (f *fakeRepo) ForwardEnvironmentIDE(context.Context, string) (domain.PortForward, error) {
+	return domain.PortForward{}, nil
+}
 
 func TestEnsureCapacityDefault(t *testing.T) {
 	repo := &fakeRepo{builds: []domain.Build{{Profile: "go", Status: domain.StatusRunning}}}

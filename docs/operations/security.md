@@ -91,6 +91,25 @@ Build Jobs and environment pods use:
 The portal itself runs as non-root `65532:65532` with a read-only root
 filesystem.
 
+## Browser IDE
+
+The `code-server` sidecar is part of the environment pod and shares
+`/workspace`. It binds to `127.0.0.1:8080`; no Service or Ingress exposes it.
+The browser reaches it only through `/api/envs/<id>/ide/` on the portal:
+
+- the portal requires a valid session and checks environment ownership;
+- the portal opens a Kubernetes port-forward (`pods/portforward`) to the pod;
+- HTTP and WebSocket traffic is reverse-proxied, including the VS Code
+  extension-host socket;
+- code-server authentication is disabled because the portal is the
+  authentication boundary;
+- the port-forward is closed when the environment is deactivated, deleted, or
+  reaped;
+- an open IDE WebSocket counts as activity and prevents idle scale-down.
+
+The portal service account therefore needs `get` and `create` on
+`pods/portforward` in the environment namespace.
+
 ## Context validation
 
 The portal validates uploaded archives:

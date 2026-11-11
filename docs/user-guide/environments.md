@@ -19,6 +19,7 @@ zeta rm          # delete everything, including the volume
 |---|---|
 | `zeta init` | Creates PVC `zeta-env-<id>`, Secret `zeta-env-<id>-sync`, and Deployment `zeta-env-<id>` at 0 replicas |
 | `zeta activate` | Scales to 1, starts the sync client, and opens an interactive shell |
+| `zeta code` | Starts the pod if needed and opens VS Code in the browser on `/workspace` |
 | `zeta deactivate` | Scales to 0 and drops the sync session |
 | `zeta rm` | Deletes the Deployment, pods, Secret, and PVC |
 
@@ -93,6 +94,30 @@ sh -c "cd /workspace && (command -v bash >/dev/null && exec bash -i || exec sh -
 
 Leaving the shell (`Ctrl-D` or `exit`) does **not** stop the environment. Run
 `zeta deactivate` explicitly when you are done, or let the idle reaper stop it.
+
+## VS Code in the browser
+
+`zeta code` opens a browser IDE backed by the environment workspace:
+
+```bash
+zeta code
+zeta code --print        # print the URL without launching a browser
+```
+
+The portal authenticates the request, then reverse-proxies HTTP and WebSocket
+traffic to a `code-server` sidecar in the environment pod. The sidecar listens
+on `127.0.0.1:8080` and is never exposed by a Service or Ingress; the portal
+reaches it through the Kubernetes port-forward API. The browser URL is:
+
+```text
+http://<portal>/api/envs/<id>/ide/
+```
+
+The sidecar shares `/workspace` with the `env` container, so edits, builds, and
+terminals opened in VS Code see the same files as `zeta activate`. The IDE
+session is tied to the pod lifetime and is counted as activity by the idle
+reaper. `zeta code` adds the sidecar to an existing environment on first use;
+allow a short rollout while the new pod starts.
 
 ## Idle scale-down
 

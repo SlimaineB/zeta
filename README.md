@@ -147,7 +147,8 @@ back before the final flush.
 - **Flexible source input.** Use the local working tree by default, or a Git
   commit when you need an auditable, pushed revision.
 - **Interactive debugging.** `--sync` lets you edit code locally while the build
-  runs and recover files produced inside the pod.
+  runs and recover files produced inside the pod. `zeta code` opens VS Code in
+  the browser on a persistent environment's `/workspace`.
 - **Centralized operations.** Jobs, logs, metrics, and artifacts are visible in
   one place and cleaned up by TTL.
 - **Extensible by design.** New toolchains are added with a profile and an image,

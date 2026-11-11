@@ -17,6 +17,7 @@ type Config struct {
 	ProfilesFile     string
 	ImageRegistry    string
 	ImageTag         string
+	IDEImage         string
 	StorageClass     string
 	VolumeQuotaBytes int64
 	VolumeMaxBytes   int64
@@ -52,6 +53,7 @@ func Load(args []string) (Config, error) {
 		ProfilesFile:  env("ZETA_PROFILES_FILE", ""),
 		ImageRegistry: env("ZETA_IMAGE_REGISTRY", ""),
 		ImageTag:      env("ZETA_IMAGE_TAG", ""),
+		IDEImage:      env("ZETA_IDE_IMAGE", "codercom/code-server:4.143.1"),
 		StorageClass:  env("ZETA_STORAGE_CLASS", "local-path"),
 		Auth: AuthConfig{
 			OIDCIssuer:           env("ZETA_OIDC_ISSUER", ""),
@@ -85,6 +87,7 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&cfg.ProfilesFile, "profiles-file", cfg.ProfilesFile, "build profiles YAML file (optional)")
 	fs.StringVar(&cfg.ImageRegistry, "image-registry", cfg.ImageRegistry, "registry prefix for profile and helper images (e.g. ghcr.io/owner)")
 	fs.StringVar(&cfg.ImageTag, "image-tag", cfg.ImageTag, "tag override for profile and helper images")
+	fs.StringVar(&cfg.IDEImage, "ide-image", cfg.IDEImage, "code-server image for browser IDE (empty disables)")
 	fs.StringVar(&cfg.StorageClass, "storage-class", cfg.StorageClass, "StorageClass for shared PVCs")
 	fs.StringVar(&volumeQuota, "volume-quota", volumeQuota, "Zeta total volume quota")
 	fs.StringVar(&volumeMax, "volume-max", volumeMax, "maximum volume size in Zeta")

@@ -234,6 +234,14 @@ func (s *Service) ExecEnvironment(ctx context.Context, id string, opts domain.Ex
 	return s.repo.ExecEnvironment(ctx, id, opts)
 }
 
+func (s *Service) EnsureEnvironmentIDE(ctx context.Context, id string) error {
+	return s.repo.EnsureEnvironmentIDE(ctx, id)
+}
+
+func (s *Service) ForwardEnvironmentIDE(ctx context.Context, id string) (domain.PortForward, error) {
+	return s.repo.ForwardEnvironmentIDE(ctx, id)
+}
+
 func ParseMetrics(log string) domain.CacheStats {
 	stats := domain.CacheStats{Extra: map[string]string{}}
 	for _, line := range strings.Split(log, "\n") {

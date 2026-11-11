@@ -33,10 +33,11 @@ type Server struct {
 	builds *builds.Service
 	auth   *auth.Service
 	sync   *synchub.Hub
+	ide    *ideProxy
 }
 
 func New(cfg config.Config, buildService *builds.Service, authService *auth.Service, syncHub *synchub.Hub) *Server {
-	return &Server{cfg: cfg, builds: buildService, auth: authService, sync: syncHub}
+	return &Server{cfg: cfg, builds: buildService, auth: authService, sync: syncHub, ide: newIDEProxy(buildService)}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -71,6 +72,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/envs/{id}/deactivate", protected(s.deactivateEnv))
 	mux.Handle("DELETE /api/envs/{id}", protected(s.deleteEnv))
 	mux.Handle("GET /api/envs/{id}/exec", protected(s.envExec))
+	mux.Handle("POST /api/envs/{id}/ide", protected(s.enableEnvIDE))
+	mux.Handle("GET /api/envs/{id}/ide", protected(s.redirectEnvIDE))
+	mux.Handle("GET /api/envs/{id}/ide/", protected(s.envIDE))
 	mux.HandleFunc("GET /api/sync/{id}/agent", s.syncAgent)
 	mux.Handle("GET /api/sync/{id}/client", protected(s.syncClient))
 
@@ -427,6 +431,7 @@ func (s *Server) deactivateEnv(w http.ResponseWriter, r *http.Request) {
 	}
 	s.sync.Delete(id)
 	s.sync.Forget(id)
+	s.ide.Close(id)
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "active": false})
 }
 
@@ -441,6 +446,7 @@ func (s *Server) deleteEnv(w http.ResponseWriter, r *http.Request) {
 	}
 	s.sync.Delete(id)
 	s.sync.Forget(id)
+	s.ide.Close(id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -601,6 +607,7 @@ func (s *Server) RunIdleReaper(ctx context.Context, timeout time.Duration) {
 			}
 			s.sync.Delete(env.ID)
 			s.sync.Forget(env.ID)
+			s.ide.Close(env.ID)
 			log.Printf("env reaper: %s scaled to zero after %s idle", env.ID, timeout)
 		}
 	}

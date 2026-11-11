@@ -54,6 +54,8 @@ func main() {
 		cmdEnvInit(os.Args[2:])
 	case "activate", "up":
 		cmdEnvActivate(os.Args[2:])
+	case "code":
+		cmdEnvCode(os.Args[2:])
 	case "deactivate", "down":
 		cmdEnvDeactivate(os.Args[2:])
 	case "ls":
@@ -89,6 +91,7 @@ Usage:
   zeta volumes delete NAME
   zeta init [--name NAME] [--profile P] [--context DIR] [--size SIZE]
   zeta activate [--name NAME] [--context DIR] [--exclude PATTERN]
+  zeta code [--name NAME] [--context DIR] [--print]
   zeta deactivate [--name NAME] [--context DIR]
   zeta ls [--json]
   zeta rm [NAME] [--name NAME] [--context DIR]
@@ -113,6 +116,7 @@ Examples:
   zeta volumes --older-than 720h
   zeta init --profile go          # provision a persistent environment
   zeta activate                   # ssh-like shell + real-time file mirror
+  zeta code                       # open VS Code in the browser on /workspace
   zeta deactivate                 # stop the environment pod
 `)
 }
@@ -546,6 +550,8 @@ func cmdEnv(args []string) {
 		cmdEnvInit(args[1:])
 	case "activate", "up":
 		cmdEnvActivate(args[1:])
+	case "code":
+		cmdEnvCode(args[1:])
 	case "deactivate", "down":
 		cmdEnvDeactivate(args[1:])
 	case "ls", "list":
@@ -663,6 +669,38 @@ func cmdEnvActivate(args []string) {
 	cancelFlush()
 	_ = session.Close()
 	fmt.Printf("environment %s still active; run 'zeta deactivate --name %s' to stop it\n", id, id)
+}
+
+func cmdEnvCode(args []string) {
+	fs := flag.NewFlagSet("code", flag.ExitOnError)
+	name := fs.String("name", "", "environment name (default: zeta.yaml or context directory name)")
+	contextDir := fs.String("context", ".", "local context directory")
+	printOnly := fs.Bool("print", false, "print the URL without opening a browser")
+	_ = fs.Parse(args)
+	c := mustClient()
+	proj, root, err := project.Load(*contextDir)
+	if err != nil {
+		fatalf("zeta.yaml: %v", err)
+	}
+	id := envName(firstNonEmpty(*name, proj.Name), root)
+	if err := c.ActivateEnv(context.Background(), id); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") && !strings.Contains(err.Error(), "zeta init") {
+			fatalf("code: environment %s not found; run 'zeta init' first", id)
+		}
+		fatalf("code: %v", err)
+	}
+	url, err := c.EnableEnvIDE(context.Background(), id)
+	if err != nil {
+		fatalf("code: %v", err)
+	}
+	fmt.Println(url)
+	if *printOnly {
+		return
+	}
+	if err := openBrowser(url); err != nil {
+		fmt.Fprintf(os.Stderr, "open: %v\n", err)
+		fmt.Printf("ouvrez cette URL dans votre navigateur: %s\n", url)
+	}
 }
 
 func cmdEnvDeactivate(args []string) {

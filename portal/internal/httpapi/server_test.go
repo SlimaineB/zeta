@@ -137,3 +137,18 @@ func TestCanManageEnv(t *testing.T) {
 		})
 	}
 }
+
+func TestRewriteIDELocation(t *testing.T) {
+	cases := map[string]string{
+		"/":                    "/api/envs/demo/ide/",
+		"./?folder=/workspace": "/api/envs/demo/ide/?folder=/workspace",
+		"/static/app.js":       "/api/envs/demo/ide/static/app.js",
+		"login":                "/api/envs/demo/ide/login",
+		"https://example.com":  "https://example.com",
+	}
+	for in, want := range cases {
+		if got := rewriteIDELocation("/api/envs/demo/ide", in); got != want {
+			t.Errorf("rewriteIDELocation(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

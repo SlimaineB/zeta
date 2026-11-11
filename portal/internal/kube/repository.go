@@ -8,8 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
+	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
@@ -29,7 +33,10 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/client-go/transport/spdy"
+	"k8s.io/client-go/util/retry"
 
 	"zeta/portal/internal/domain"
 )
@@ -54,6 +61,9 @@ const (
 	envProfileAnnotation  = "zeta.io/env-profile"
 	envTokenKey           = "token"
 	envContainerName      = "env"
+	ideContainerName      = "ide"
+	ideHomeVolume         = "ide-home"
+	idePort               = 8080
 )
 
 type Repository struct {
@@ -69,9 +79,10 @@ type Repository struct {
 	volumeMaxBytes   int64
 	imageRegistry    string
 	imageTag         string
+	ideImage         string
 }
 
-func NewRepository(namespace, kubeconfig, masterURL, storageClass string, volumeQuotaBytes, volumeMaxBytes int64, imageRegistry, imageTag string) (*Repository, error) {
+func NewRepository(namespace, kubeconfig, masterURL, storageClass string, volumeQuotaBytes, volumeMaxBytes int64, imageRegistry, imageTag, ideImage string) (*Repository, error) {
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	if kubeconfig != "" {
 		loadingRules.ExplicitPath = kubeconfig
@@ -104,6 +115,7 @@ func NewRepository(namespace, kubeconfig, masterURL, storageClass string, volume
 		volumeMaxBytes:   volumeMaxBytes,
 		imageRegistry:    strings.TrimSuffix(strings.TrimSpace(imageRegistry), "/"),
 		imageTag:         strings.TrimSpace(imageTag),
+		ideImage:         strings.TrimSpace(ideImage),
 	}, nil
 }
 
@@ -1005,6 +1017,15 @@ func (r *Repository) ensureEnvDeployment(ctx context.Context, id string, profile
 		},
 		VolumeMounts: []corev1.VolumeMount{{Name: "workspace", MountPath: "/workspace"}},
 	}
+	containers := []corev1.Container{envContainer, syncdContainer}
+	volumes := []corev1.Volume{
+		{Name: "workspace", VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: envPVCName(id)}}},
+		{Name: "cache", VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: cacheName}}},
+	}
+	if r.ideEnabled() {
+		containers = append(containers, r.ideContainer())
+		volumes = append(volumes, corev1.Volume{Name: ideHomeVolume, VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}})
+	}
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
@@ -1026,11 +1047,8 @@ func (r *Repository) ensureEnvDeployment(ctx context.Context, id string, profile
 						FSGroup:        ptrI64(1000),
 						SeccompProfile: &corev1.SeccompProfile{Type: corev1.SeccompProfileTypeRuntimeDefault},
 					},
-					Containers: []corev1.Container{envContainer, syncdContainer},
-					Volumes: []corev1.Volume{
-						{Name: "workspace", VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: envPVCName(id)}}},
-						{Name: "cache", VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: cacheName}}},
-					},
+					Containers: containers,
+					Volumes:    volumes,
 				},
 			},
 		},
@@ -1166,6 +1184,192 @@ func (r *Repository) EnvironmentToken(ctx context.Context, id string) (string, e
 		return "", fmt.Errorf("environment %s has no sync token", id)
 	}
 	return token, nil
+}
+
+func (r *Repository) ideEnabled() bool {
+	return strings.TrimSpace(r.ideImage) != ""
+}
+
+func (r *Repository) ideContainer() corev1.Container {
+	return corev1.Container{
+		Name:            ideContainerName,
+		Image:           r.ideImage,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command:         []string{"code-server"},
+		Args: []string{
+			"--bind-addr", fmt.Sprintf("127.0.0.1:%d", idePort),
+			"--auth", "none",
+			"--disable-telemetry",
+			"--user-data-dir", "/home/coder/.local/share/code-server",
+			"--extensions-dir", "/home/coder/.local/share/code-server/extensions",
+			"/workspace",
+		},
+		WorkingDir:      "/workspace",
+		SecurityContext: lockedContext(),
+		Env: []corev1.EnvVar{
+			{Name: "HOME", Value: "/home/coder"},
+			{Name: "XDG_CONFIG_HOME", Value: "/home/coder/.config"},
+			{Name: "XDG_DATA_HOME", Value: "/home/coder/.local/share"},
+		},
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    quantity("50m"),
+				corev1.ResourceMemory: quantity("128Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    quantity("500m"),
+				corev1.ResourceMemory: quantity("512Mi"),
+			},
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "workspace", MountPath: "/workspace"},
+			{Name: ideHomeVolume, MountPath: "/home/coder"},
+		},
+	}
+}
+
+func (r *Repository) EnsureEnvironmentIDE(ctx context.Context, id string) error {
+	if !r.ideEnabled() {
+		return fmt.Errorf("IDE web désactivé sur ce portail")
+	}
+	return retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		dep, err := r.apps.Deployments(r.namespace).Get(ctx, envDeployName(id), metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		desired := r.ideContainer()
+		changed := false
+		found := false
+		for i := range dep.Spec.Template.Spec.Containers {
+			if dep.Spec.Template.Spec.Containers[i].Name == ideContainerName {
+				if !reflect.DeepEqual(dep.Spec.Template.Spec.Containers[i], desired) {
+					dep.Spec.Template.Spec.Containers[i] = desired
+					changed = true
+				}
+				found = true
+				break
+			}
+		}
+		if !found {
+			dep.Spec.Template.Spec.Containers = append(dep.Spec.Template.Spec.Containers, desired)
+			changed = true
+		}
+		hasHome := false
+		for _, volume := range dep.Spec.Template.Spec.Volumes {
+			if volume.Name == ideHomeVolume {
+				hasHome = true
+				break
+			}
+		}
+		if !hasHome {
+			dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, corev1.Volume{
+				Name:         ideHomeVolume,
+				VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}},
+			})
+			changed = true
+		}
+		if !changed {
+			return nil
+		}
+		_, err = r.apps.Deployments(r.namespace).Update(ctx, dep, metav1.UpdateOptions{})
+		return err
+	})
+}
+
+func (r *Repository) ForwardEnvironmentIDE(ctx context.Context, id string) (domain.PortForward, error) {
+	pod, err := r.waitIDEPod(ctx, id)
+	if err != nil {
+		return domain.PortForward{}, err
+	}
+	return r.forwardPodPort(ctx, pod, idePort)
+}
+
+func (r *Repository) waitIDEPod(ctx context.Context, id string) (string, error) {
+	deadline := time.Now().Add(90 * time.Second)
+	for {
+		pod, err := r.envIDEPod(ctx, id)
+		if err == nil {
+			return pod, nil
+		}
+		if ctx.Err() != nil {
+			return "", ctx.Err()
+		}
+		if time.Now().After(deadline) {
+			return "", err
+		}
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+func (r *Repository) envIDEPod(ctx context.Context, id string) (string, error) {
+	pods, err := r.core.Pods(r.namespace).List(ctx, metav1.ListOptions{LabelSelector: envLabel + "=" + id})
+	if err != nil {
+		return "", err
+	}
+	for _, pod := range pods.Items {
+		if pod.Status.Phase != corev1.PodRunning {
+			continue
+		}
+		ready := map[string]bool{}
+		for _, status := range pod.Status.ContainerStatuses {
+			ready[status.Name] = status.Ready && status.State.Running != nil
+		}
+		if ready[envContainerName] && ready[ideContainerName] {
+			return pod.Name, nil
+		}
+	}
+	return "", fmt.Errorf("IDE de l'environnement %s pas encore prêt", id)
+}
+
+func (r *Repository) forwardPodPort(ctx context.Context, pod string, port int) (domain.PortForward, error) {
+	if r.config == nil {
+		return domain.PortForward{}, fmt.Errorf("configuration Kubernetes indisponible")
+	}
+	transport, upgrader, err := spdy.RoundTripperFor(r.config)
+	if err != nil {
+		return domain.PortForward{}, err
+	}
+	target, err := url.Parse(r.config.Host)
+	if err != nil {
+		return domain.PortForward{}, err
+	}
+	if target.Scheme == "" {
+		target.Scheme = "https"
+	}
+	target.Path = fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/portforward", r.namespace, pod)
+	target.RawQuery = ""
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, http.MethodPost, target)
+	stop := make(chan struct{})
+	ready := make(chan struct{}, 1)
+	forwarder, err := portforward.NewOnAddresses(dialer, []string{"127.0.0.1"}, []string{fmt.Sprintf("0:%d", port)}, stop, ready, io.Discard, io.Discard)
+	if err != nil {
+		return domain.PortForward{}, err
+	}
+	go func() { _ = forwarder.ForwardPorts() }()
+	select {
+	case <-ctx.Done():
+		close(stop)
+		return domain.PortForward{}, ctx.Err()
+	case <-ready:
+	}
+	ports, err := forwarder.GetPorts()
+	if err != nil {
+		close(stop)
+		return domain.PortForward{}, err
+	}
+	if len(ports) == 0 {
+		close(stop)
+		return domain.PortForward{}, fmt.Errorf("port-forward IDE sans port local")
+	}
+	var once sync.Once
+	return domain.PortForward{
+		Address: fmt.Sprintf("127.0.0.1:%d", ports[0].Local),
+		Close:   func() { once.Do(func() { close(stop) }) },
+	}, nil
 }
 
 func (r *Repository) ExecEnvironment(ctx context.Context, id string, opts domain.ExecOptions) error {

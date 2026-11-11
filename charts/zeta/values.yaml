@@ -42,6 +42,12 @@ portal:
   extraArgs: []
   extraEnv: []
 
+ide:
+  enabled: true
+  image:
+    repository: codercom/code-server
+    tag: "4.143.1"
+
 service:
   type: ClusterIP
   port: 80

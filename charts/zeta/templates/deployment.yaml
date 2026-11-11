@@ -40,6 +40,7 @@ spec:
             - -image-registry={{ .Values.image.registry }}
             {{- end }}
             - -image-tag={{ include "zeta.imageTag" . }}
+            - -ide-image={{ if .Values.ide.enabled }}{{ .Values.ide.image.repository }}:{{ .Values.ide.image.tag }}{{ end }}
             {{- if .Values.auth.dev }}
             - -oidc-dev
             {{- else }}

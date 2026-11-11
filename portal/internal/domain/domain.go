@@ -168,6 +168,11 @@ type ExecOptions struct {
 	SizeQueue TerminalSizeQueue
 }
 
+type PortForward struct {
+	Address string
+	Close   func()
+}
+
 type BuildRepository interface {
 	Create(ctx context.Context, spec BuildSpec) (string, error)
 	StoreContext(ctx context.Context, r io.Reader) (string, error)
@@ -188,4 +193,6 @@ type BuildRepository interface {
 	EnvironmentOwner(ctx context.Context, id string) (string, error)
 	EnvironmentToken(ctx context.Context, id string) (string, error)
 	ExecEnvironment(ctx context.Context, id string, opts ExecOptions) error
+	EnsureEnvironmentIDE(ctx context.Context, id string) error
+	ForwardEnvironmentIDE(ctx context.Context, id string) (PortForward, error)
 }

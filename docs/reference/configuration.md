@@ -14,6 +14,7 @@ precedence.
 | `--profiles-file` | `ZETA_PROFILES_FILE` | empty | Additional profiles YAML |
 | `--image-registry` | `ZETA_IMAGE_REGISTRY` | empty | Registry prefix for profile and helper images |
 | `--image-tag` | `ZETA_IMAGE_TAG` | empty | Tag override for profile and helper images |
+| `--ide-image` | `ZETA_IDE_IMAGE` | `codercom/code-server:4.143.1` | Browser IDE sidecar image; empty disables the IDE |
 | `--storage-class` | `ZETA_STORAGE_CLASS` | `local-path` | StorageClass for shared PVCs |
 | `--volume-quota` | `ZETA_VOLUME_QUOTA` | `20Gi` | Total capacity of managed volumes |
 | `--volume-max` | `ZETA_VOLUME_MAX` | `10Gi` | Maximum size of one managed volume |

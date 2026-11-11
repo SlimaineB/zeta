@@ -207,6 +207,7 @@ zeta rm
 |---|---|
 | `zeta init` | `--name`, `--profile`, `--context`, `--size` |
 | `zeta activate` | `--name`, `--context`, `--exclude` (repeatable) |
+| `zeta code` | `--name`, `--context`, `--print` |
 | `zeta deactivate` | `--name`, `--context` |
 | `zeta ls` | `--json` |
 | `zeta rm` | `[NAME]`, `--name`, `--context` |
@@ -215,8 +216,13 @@ The name is resolved in this order: `--name` flag, `name` field in `zeta.yaml`,
 then the context directory name. It is normalized to a slug (lowercase letters,
 digits, and dashes, up to 40 characters).
 
-`zeta init`, `activate`, `deactivate`, and `rm` read `zeta.yaml` from
+`zeta init`, `activate`, `code`, `deactivate`, and `rm` read `zeta.yaml` from
 `--context` (default `.`). Flags take precedence over the file.
+
+`zeta code` starts the environment, enables the `code-server` sidecar if the
+environment predates it, and opens the authenticated browser IDE on
+`/workspace`. Use `--print` on headless machines and open the printed URL
+manually.
 
 See [Persistent environments](environments.md) and
 [`zeta.yaml` reference](../reference/zeta-yaml.md).

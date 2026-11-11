@@ -185,6 +185,21 @@ container logs and the image entrypoint.
 - Check `exclude` in `zeta.yaml` and `--exclude`.
 - Confirm the sync session is still connected.
 
+### `zeta code` says the IDE is not ready
+
+The first `zeta code` call adds the `ide` sidecar to an existing environment and
+triggers a rollout. Wait for the new pod, then retry:
+
+```bash
+kubectl --context local -n zeta-poc get pods -l zeta.io/env=<id>
+kubectl --context local -n zeta-poc logs deploy/zeta-env-<id> -c ide
+```
+
+If the pod stays `2/3`, check that `codercom/code-server:4.143.1` is present on
+the node (or pullable) and that the portal Role includes `pods/portforward`.
+The sidecar binds to `127.0.0.1:8080`, so a normal HTTP probe from kubelet cannot
+reach it; the portal waits for the container and opens a port-forward instead.
+
 ### Environment stops by itself
 
 This is the idle reaper. Default `--env-idle-timeout` is `15m`; `0` disables it.
