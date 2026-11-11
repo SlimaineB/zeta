@@ -4,7 +4,7 @@ fullnameOverride: zeta-portal
 image:
   registry: ""
   repository: zeta/portal
-  tag: ""
+  tag: "dev-20261110223917"
   pullPolicy: IfNotPresent
   pullSecrets: []
 
@@ -49,7 +49,7 @@ ide:
     tag: "4.143.1"
 
 service:
-  type: ClusterIP
+  type: NodePort
   port: 80
 
 ingress:

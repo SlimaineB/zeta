@@ -1387,7 +1387,19 @@ func (r *Repository) forwardPodPort(ctx context.Context, pod string, port int) (
 }
 
 func (r *Repository) ExecEnvironment(ctx context.Context, id string, opts domain.ExecOptions) error {
-	pod, err := r.envPod(ctx, id)
+	var pod string
+	var err error
+	for attempt := 0; attempt < 10; attempt++ {
+		pod, err = r.envPod(ctx, id)
+		if err == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 	if err != nil {
 		return err
 	}
