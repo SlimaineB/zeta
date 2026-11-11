@@ -110,6 +110,24 @@ The browser reaches it only through `/api/envs/<id>/ide/` on the portal:
 The portal service account therefore needs `get` and `create` on
 `pods/portforward` in the environment namespace.
 
+## Temporary workspace shares
+
+`zeta share` creates a bearer link with **full workspace access** for a limited
+time. Treat the link like a password:
+
+- the token is stored only as a SHA-256 hash in portal memory;
+- the guest cookie is HttpOnly and scoped to the portal;
+- the link expires after the requested TTL (1 minute to 7 days);
+- revoking it invalidates new requests immediately and closes registered guest
+  shell/sync sockets and the IDE proxy;
+- guests cannot deactivate/delete the environment or manage shares;
+- deactivating or deleting the environment revokes its shares;
+- portal restarts invalidate all existing shares.
+
+The `/s/{token}` response sets `Cache-Control: no-store` and
+`Referrer-Policy: no-referrer` to reduce token leakage. Do not paste share links
+into public channels.
+
 ## Context validation
 
 The portal validates uploaded archives:

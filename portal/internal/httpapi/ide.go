@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -43,8 +45,40 @@ func (p *ideProxy) acquire(id string) (*url.URL, error) {
 		return nil, err
 	}
 	target := &url.URL{Scheme: "http", Host: forward.Address}
+	if err := waitIDEHTTP(ctx, target); err != nil {
+		forward.Close()
+		return nil, err
+	}
 	p.entries[id] = &ideEntry{target: target, close: forward.Close}
 	return target, nil
+}
+
+func waitIDEHTTP(ctx context.Context, target *url.URL) error {
+	client := &http.Client{
+		Timeout: 2 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	for {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, target.String()+"/", nil)
+		if err != nil {
+			return err
+		}
+		resp, err := client.Do(req)
+		if err == nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+			if resp.StatusCode < http.StatusInternalServerError {
+				return nil
+			}
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("IDE pas encore prêt: %w", ctx.Err())
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
 }
 
 func (p *ideProxy) invalidate(id string) {
@@ -86,6 +120,7 @@ func (s *Server) redirectEnvIDE(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) envIDE(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Referrer-Policy", "no-referrer")
 	id := r.PathValue("id")
 	if !s.authorizeEnv(w, r, id) {
 		return
@@ -101,8 +136,12 @@ func (s *Server) envIDE(w http.ResponseWriter, r *http.Request) {
 		path = "/"
 	}
 	query := r.URL.RawQuery
-	s.sync.BeginClient(id)
-	defer s.sync.EndClient(id)
+	s.sync.Touch(id)
+	if isWebSocketRequest(r) {
+		identity := s.requestIdentity(r)
+		release := s.sync.BeginIDE(id, identity.key, identity.name, identity.shareID, identity.guest)
+		defer release()
+	}
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.SetURL(target)
@@ -130,6 +169,10 @@ func (s *Server) envIDE(w http.ResponseWriter, r *http.Request) {
 		FlushInterval: -1,
 	}
 	proxy.ServeHTTP(w, r)
+}
+
+func isWebSocketRequest(r *http.Request) bool {
+	return strings.EqualFold(r.Header.Get("Upgrade"), "websocket")
 }
 
 func rewriteIDELocation(prefix, location string) string {

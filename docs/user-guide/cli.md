@@ -208,6 +208,9 @@ zeta rm
 | `zeta init` | `--name`, `--profile`, `--context`, `--size` |
 | `zeta activate` | `--name`, `--context`, `--exclude` (repeatable) |
 | `zeta code` | `--name`, `--context`, `--print` |
+| `zeta share` | `--name`, `--context`, `--ttl`, `--label` |
+| `zeta share list` | `--name`, `--context`, `--json` |
+| `zeta share revoke` | `SHARE_ID`, `--name`, `--context` |
 | `zeta deactivate` | `--name`, `--context` |
 | `zeta ls` | `--json` |
 | `zeta rm` | `[NAME]`, `--name`, `--context` |
@@ -223,6 +226,11 @@ digits, and dashes, up to 40 characters).
 environment predates it, and opens the authenticated browser IDE on
 `/workspace`. Use `--print` on headless machines and open the printed URL
 manually.
+
+`zeta share` creates a temporary link with full workspace access. The default
+lifetime is `1h`; use `--ttl` for another duration and `--label` to identify the
+guest in the dashboard. `zeta share list` shows active links and connected
+guests; `zeta share revoke SHARE_ID` invalidates a link immediately.
 
 See [Persistent environments](environments.md) and
 [`zeta.yaml` reference](../reference/zeta-yaml.md).

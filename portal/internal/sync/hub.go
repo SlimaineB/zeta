@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -11,11 +12,27 @@ import (
 )
 
 type Hub struct {
-	mu       sync.Mutex
-	sessions map[string]*session
-	activity map[string]time.Time
-	clients  map[string]int
-	execs    map[string]int
+	mu        sync.Mutex
+	sessions  map[string]*session
+	activity  map[string]time.Time
+	clients   map[string]int
+	execs     map[string]int
+	presences map[string]map[string]*presence
+}
+
+type Participant struct {
+	ID      string    `json:"id"`
+	Name    string    `json:"name"`
+	Kind    string    `json:"kind"`
+	Since   time.Time `json:"since"`
+	ShareID string    `json:"shareId,omitempty"`
+	Guest   bool      `json:"guest,omitempty"`
+	Count   int       `json:"count,omitempty"`
+}
+
+type presence struct {
+	Participant
+	count int
 }
 
 type session struct {
@@ -32,10 +49,11 @@ type session struct {
 
 func NewHub() *Hub {
 	return &Hub{
-		sessions: map[string]*session{},
-		activity: map[string]time.Time{},
-		clients:  map[string]int{},
-		execs:    map[string]int{},
+		sessions:  map[string]*session{},
+		activity:  map[string]time.Time{},
+		clients:   map[string]int{},
+		execs:     map[string]int{},
+		presences: map[string]map[string]*presence{},
 	}
 }
 
@@ -78,6 +96,95 @@ func (h *Hub) EndExec(id string) {
 	h.mu.Unlock()
 }
 
+func (h *Hub) BeginSyncClient(id, key, name, shareID string, guest bool) func() {
+	return h.begin(id, "sync", key, name, shareID, guest, true)
+}
+
+func (h *Hub) BeginIDE(id, key, name, shareID string, guest bool) func() {
+	return h.begin(id, "ide", key, name, shareID, guest, true)
+}
+
+func (h *Hub) BeginShell(id, key, name, shareID string, guest bool) func() {
+	return h.begin(id, "shell", key, name, shareID, guest, false)
+}
+
+func (h *Hub) begin(id, kind, key, name, shareID string, guest, client bool) func() {
+	if key == "" {
+		key = NewToken()
+	}
+	presenceKey := kind + "|" + key
+	h.mu.Lock()
+	if client {
+		h.clients[id]++
+	} else {
+		h.execs[id]++
+	}
+	h.activity[id] = time.Now()
+	if h.presences[id] == nil {
+		h.presences[id] = map[string]*presence{}
+	}
+	if p := h.presences[id][presenceKey]; p != nil {
+		p.count++
+		p.Name = name
+		p.ShareID = shareID
+		p.Guest = guest
+	} else {
+		h.presences[id][presenceKey] = &presence{
+			Participant: Participant{
+				ID:      presenceKey,
+				Name:    name,
+				Kind:    kind,
+				Since:   time.Now(),
+				ShareID: shareID,
+				Guest:   guest,
+				Count:   1,
+			},
+			count: 1,
+		}
+	}
+	h.mu.Unlock()
+	var once sync.Once
+	return func() {
+		once.Do(func() {
+			h.mu.Lock()
+			if client {
+				if h.clients[id] > 0 {
+					h.clients[id]--
+				}
+			} else if h.execs[id] > 0 {
+				h.execs[id]--
+			}
+			if p := h.presences[id][presenceKey]; p != nil {
+				p.count--
+				if p.count <= 0 {
+					delete(h.presences[id], presenceKey)
+				} else {
+					p.Count = p.count
+				}
+			}
+			if len(h.presences[id]) == 0 {
+				delete(h.presences, id)
+			}
+			h.activity[id] = time.Now()
+			h.mu.Unlock()
+		})
+	}
+}
+
+func (h *Hub) Presence(id string) []Participant {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	out := make([]Participant, 0, len(h.presences[id]))
+	for _, p := range h.presences[id] {
+		p.Count = p.count
+		out = append(out, p.Participant)
+	}
+	sort.Slice(out, func(i, j int) bool {
+		return out[i].Since.Before(out[j].Since)
+	})
+	return out
+}
+
 // Active reports whether a sync client or an interactive shell is attached.
 func (h *Hub) Active(id string) bool {
 	h.mu.Lock()
@@ -110,6 +217,7 @@ func (h *Hub) Forget(id string) {
 	delete(h.activity, id)
 	delete(h.clients, id)
 	delete(h.execs, id)
+	delete(h.presences, id)
 	h.mu.Unlock()
 }
 

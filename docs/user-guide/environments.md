@@ -20,6 +20,7 @@ zeta rm          # delete everything, including the volume
 | `zeta init` | Creates PVC `zeta-env-<id>`, Secret `zeta-env-<id>-sync`, and Deployment `zeta-env-<id>` at 0 replicas |
 | `zeta activate` | Scales to 1, starts the sync client, and opens an interactive shell |
 | `zeta code` | Starts the pod if needed and opens VS Code in the browser on `/workspace` |
+| `zeta share` | Creates a temporary full-access link to the workspace |
 | `zeta deactivate` | Scales to 0 and drops the sync session |
 | `zeta rm` | Deletes the Deployment, pods, Secret, and PVC |
 
@@ -118,6 +119,38 @@ terminals opened in VS Code see the same files as `zeta activate`. The IDE
 session is tied to the pod lifetime and is counted as activity by the idle
 reaper. `zeta code` adds the sidecar to an existing environment on first use;
 allow a short rollout while the new pod starts.
+
+## Temporary sharing
+
+Use `zeta share` to give someone full access to an environment for
+troubleshooting:
+
+```bash
+zeta share --ttl 1h --label Alice
+zeta share list
+zeta share revoke <share-id>
+```
+
+The command prints a one-time link such as
+`http://zeta.local/s/<token>`. Opening it creates a guest session scoped to that
+environment and redirects to VS Code. A guest can:
+
+- open the browser IDE and its terminal;
+- run commands through the environment exec WebSocket;
+- attach a sync client, like the owner;
+- start the environment if it is stopped.
+
+Guests cannot deactivate or delete the environment, manage shares, or access
+builds and volumes. The link expires after the requested duration (1 hour by
+default, 1 minute to 7 days). Revoking a link invalidates it immediately and
+closes active guest shell, sync, and IDE sessions. Deactivating the environment
+also revokes its shares.
+
+The dashboard **Environments** panel lists active shares and shows who is
+connected, with the participant name, connection kind (`VS Code`, `shell`, or
+`sync`), and connection time. Guests see the same connection list for their
+shared environment. Share state is held by the portal process; a portal restart
+invalidates existing links.
 
 ## Idle scale-down
 

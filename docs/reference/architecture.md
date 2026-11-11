@@ -143,6 +143,13 @@ has no Service or Ingress. The portal authenticates `/api/envs/<id>/ide/`,
 opens a port-forward to the pod, and reverse-proxies HTTP and WebSocket traffic
 to `code-server`.
 
+The portal also keeps in-memory share links and connection presence. A share
+link is a random bearer token scoped to one environment and an expiry. Guest
+sessions created from it can use the IDE, exec, sync, and activation endpoints
+but not environment lifecycle or share management. Presence entries are created
+for long-lived IDE WebSockets, shells, and sync clients, and are exposed through
+`GET /api/envs` for the dashboard.
+
 The sync Secret is created by `zeta init` and reused by later activations. If the
 Secret is missing when the portal needs a session, it recreates it from the
 Deployment token.

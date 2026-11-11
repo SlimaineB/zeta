@@ -153,6 +153,61 @@ body {
   align-items: start;
 }
 .volumes-panel { margin-bottom: 18px; }
+.envs-panel { margin-bottom: 18px; }
+.env-list { display: grid; gap: 12px; }
+.env-card {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.env-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.env-name { font-size: 14px; font-weight: 750; }
+.env-connections {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.participant {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  font-size: 11px;
+}
+.participant[data-guest="true"] {
+  border-color: var(--warn-soft);
+  background: var(--warn-soft);
+}
+.env-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.shares-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+.share-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.share-meta { color: var(--muted); font-size: 11.5px; margin-top: 2px; }
+.guest-mode .summary,
+.guest-mode .charts,
+.guest-mode .volumes-panel,
+.guest-mode .dashboard { display: none; }
+.guest-mode .envs-panel { margin-top: 0; }
 .panel {
   min-width: 0;
   padding: 18px;

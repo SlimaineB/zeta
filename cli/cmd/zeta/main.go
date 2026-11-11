@@ -56,6 +56,8 @@ func main() {
 		cmdEnvActivate(os.Args[2:])
 	case "code":
 		cmdEnvCode(os.Args[2:])
+	case "share":
+		cmdShare(os.Args[2:])
 	case "deactivate", "down":
 		cmdEnvDeactivate(os.Args[2:])
 	case "ls":
@@ -92,6 +94,9 @@ Usage:
   zeta init [--name NAME] [--profile P] [--context DIR] [--size SIZE]
   zeta activate [--name NAME] [--context DIR] [--exclude PATTERN]
   zeta code [--name NAME] [--context DIR] [--print]
+  zeta share [--name NAME] [--context DIR] [--ttl 1h] [--label NAME]
+  zeta share list [--name NAME] [--context DIR] [--json]
+  zeta share revoke SHARE_ID [--name NAME] [--context DIR]
   zeta deactivate [--name NAME] [--context DIR]
   zeta ls [--json]
   zeta rm [NAME] [--name NAME] [--context DIR]
@@ -117,6 +122,7 @@ Examples:
   zeta init --profile go          # provision a persistent environment
   zeta activate                   # ssh-like shell + real-time file mirror
   zeta code                       # open VS Code in the browser on /workspace
+  zeta share --ttl 1h --label Alice  # temporary full-access workspace link
   zeta deactivate                 # stop the environment pod
 `)
 }
@@ -542,7 +548,7 @@ func cmdVolumeDelete(args []string) {
 
 func cmdEnv(args []string) {
 	if len(args) == 0 {
-		fmt.Fprintln(os.Stderr, "usage: zeta init|activate|deactivate|ls|rm ...")
+		fmt.Fprintln(os.Stderr, "usage: zeta init|activate|code|share|deactivate|ls|rm ...")
 		return
 	}
 	switch args[0] {
@@ -552,6 +558,8 @@ func cmdEnv(args []string) {
 		cmdEnvActivate(args[1:])
 	case "code":
 		cmdEnvCode(args[1:])
+	case "share":
+		cmdShare(args[1:])
 	case "deactivate", "down":
 		cmdEnvDeactivate(args[1:])
 	case "ls", "list":
@@ -701,6 +709,103 @@ func cmdEnvCode(args []string) {
 		fmt.Fprintf(os.Stderr, "open: %v\n", err)
 		fmt.Printf("ouvrez cette URL dans votre navigateur: %s\n", url)
 	}
+}
+
+func cmdShare(args []string) {
+	if len(args) > 0 {
+		switch args[0] {
+		case "ls", "list":
+			cmdShareList(args[1:])
+			return
+		case "revoke", "rm", "delete":
+			cmdShareRevoke(args[1:])
+			return
+		}
+	}
+	fs := flag.NewFlagSet("share", flag.ExitOnError)
+	name := fs.String("name", "", "environment name (default: zeta.yaml or context directory name)")
+	contextDir := fs.String("context", ".", "local context directory")
+	ttl := fs.String("ttl", "1h", "share lifetime (e.g. 15m, 1h, 24h)")
+	label := fs.String("label", "", "guest label shown in the UI")
+	_ = fs.Parse(args)
+	c := mustClient()
+	proj, root, err := project.Load(*contextDir)
+	if err != nil {
+		fatalf("zeta.yaml: %v", err)
+	}
+	id := envName(firstNonEmpty(*name, proj.Name), root)
+	share, err := c.CreateShare(context.Background(), id, *ttl, *label)
+	if err != nil {
+		fatalf("share: %v", err)
+	}
+	fmt.Printf("share %s created for environment %s\n", share.ID, share.EnvID)
+	fmt.Printf("expires: %s\n", share.ExpiresAt.Local().Format(time.RFC3339))
+	fmt.Println(share.URL)
+}
+
+func cmdShareList(args []string) {
+	fs := flag.NewFlagSet("share list", flag.ExitOnError)
+	name := fs.String("name", "", "environment name (default: zeta.yaml or context directory name)")
+	contextDir := fs.String("context", ".", "local context directory")
+	asJSON := fs.Bool("json", false, "JSON output")
+	_ = fs.Parse(args)
+	c := mustClient()
+	proj, root, err := project.Load(*contextDir)
+	if err != nil {
+		fatalf("zeta.yaml: %v", err)
+	}
+	id := envName(firstNonEmpty(*name, proj.Name), root)
+	shares, err := c.Shares(context.Background(), id)
+	if err != nil {
+		fatalf("share list: %v", err)
+	}
+	if *asJSON {
+		writeJSON(shares)
+		return
+	}
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintln(w, "ID\tLABEL\tCREATED BY\tEXPIRES\tLAST USED\tCONNECTED")
+	for _, share := range shares {
+		last := "never"
+		if share.LastUsedAt != nil {
+			last = share.LastUsedAt.Local().Format("2006-01-02 15:04") + " (" + formatAge(time.Since(*share.LastUsedAt)) + ")"
+		}
+		connected := 0
+		for _, p := range share.Connections {
+			connected += p.Count
+			if p.Count == 0 {
+				connected++
+			}
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\n", share.ID, share.Label, share.CreatedBy, share.ExpiresAt.Local().Format("2006-01-02 15:04"), last, connected)
+	}
+	_ = w.Flush()
+}
+
+func cmdShareRevoke(args []string) {
+	shareID := ""
+	rest := args
+	if len(rest) > 0 && !strings.HasPrefix(rest[0], "-") {
+		shareID = rest[0]
+		rest = rest[1:]
+	}
+	fs := flag.NewFlagSet("share revoke", flag.ExitOnError)
+	name := fs.String("name", "", "environment name (default: zeta.yaml or context directory name)")
+	contextDir := fs.String("context", ".", "local context directory")
+	_ = fs.Parse(rest)
+	if shareID == "" {
+		fatalf("usage: zeta share revoke SHARE_ID [--name NAME] [--context DIR]")
+	}
+	c := mustClient()
+	proj, root, err := project.Load(*contextDir)
+	if err != nil {
+		fatalf("zeta.yaml: %v", err)
+	}
+	id := envName(firstNonEmpty(*name, proj.Name), root)
+	if err := c.RevokeShare(context.Background(), id, shareID); err != nil {
+		fatalf("share revoke: %v", err)
+	}
+	fmt.Printf("share %s revoked\n", shareID)
 }
 
 func cmdEnvDeactivate(args []string) {

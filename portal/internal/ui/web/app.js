@@ -21,6 +21,22 @@ const els = {
   volumeQuotaBar: document.getElementById("volume-quota-bar"),
   volumeError: document.getElementById("volume-error"),
   volumesRefresh: document.getElementById("volumes-refresh"),
+  envsBody: document.getElementById("envs-body"),
+  envError: document.getElementById("env-error"),
+  envsRefresh: document.getElementById("envs-refresh"),
+  envsLastRefresh: document.getElementById("envs-last-refresh"),
+  shareDialog: document.getElementById("share-dialog"),
+  shareForm: document.getElementById("share-form"),
+  shareEnv: document.getElementById("share-env"),
+  shareLabel: document.getElementById("share-label"),
+  shareTtl: document.getElementById("share-ttl"),
+  shareError: document.getElementById("share-error"),
+  shareResult: document.getElementById("share-result"),
+  shareUrl: document.getElementById("share-url"),
+  shareCopy: document.getElementById("share-copy"),
+  shareClose: document.getElementById("share-close"),
+  shareCancel: document.getElementById("share-cancel"),
+  shareSubmit: document.getElementById("share-submit"),
   resizeDialog: document.getElementById("resize-dialog"),
   resizeForm: document.getElementById("resize-form"),
   resizeName: document.getElementById("resize-name"),
@@ -41,6 +57,8 @@ const state = {
   resizeVolume: null,
   logAbort: null,
   poll: null,
+  envs: [],
+  shareEnv: null,
 };
 
 async function api(path, opts = {}) {
@@ -80,6 +98,18 @@ async function loadBuilds() {
   }
 }
 
+async function loadEnvs() {
+  try {
+    state.envs = await (await api("/api/envs")).json();
+    els.envError.hidden = true;
+    renderEnvs();
+    els.envsLastRefresh.textContent = "updated " + new Date().toLocaleTimeString("en-US", {hour: "2-digit", minute: "2-digit", second: "2-digit"});
+  } catch (err) {
+    els.envError.textContent = err.message;
+    els.envError.hidden = false;
+  }
+}
+
 async function loadVolumes() {
   try {
     const data = await (await api("/api/volumes")).json();
@@ -112,6 +142,116 @@ function render() {
   renderDurationChart();
   renderCacheChart();
   renderBuilds();
+}
+
+function renderEnvs() {
+  if (!state.envs.length) {
+    els.envsBody.innerHTML = `<div class="empty compact"><strong>No environments</strong><span>Create one with <code>zeta init</code>.</span></div>`;
+    return;
+  }
+  els.envsBody.innerHTML = state.envs.map((env) => {
+    const active = env.active ? '<span class="chip ok">active</span>' : '<span class="chip">stopped</span>';
+    const owner = env.owner ? `<span class="muted small">${escapeHTML(env.owner)}</span>` : "";
+    const connections = env.connections || [];
+    const connected = connections.length
+      ? connections.map(renderParticipant).join("")
+      : '<span class="muted small">No active connection</span>';
+    const shares = (env.shares || []).map((share) => renderShareRow(env.id, share)).join("");
+    const shareButton = state.me && !state.me.guest
+      ? `<button class="ghost small" data-env-share="${escapeHTML(env.id)}">Share temporarily</button>`
+      : "";
+    return `<div class="env-card">
+      <div class="env-head">
+        <strong class="env-name mono">${escapeHTML(env.id)}</strong>
+        ${active}
+        <span class="chip">${escapeHTML(env.profile || "env")}</span>
+        ${owner}
+      </div>
+      <div class="env-connections"><span class="muted small">Connected:</span>${connected}</div>
+      <div class="env-actions">
+        <button class="small" data-env-ide="${escapeHTML(env.id)}">Open VS Code</button>
+        ${shareButton}
+      </div>
+      ${shares ? `<div class="shares-list">${shares}</div>` : ""}
+    </div>`;
+  }).join("");
+}
+
+function renderParticipant(p) {
+  const kind = ({ide: "VS Code", shell: "shell", sync: "sync"})[p.kind] || p.kind;
+  const count = p.count > 1 ? ` ×${p.count}` : "";
+  const label = p.guest ? `${p.name} (guest)` : p.name;
+  return `<span class="participant" data-guest="${p.guest ? "true" : "false"}" title="Connected ${escapeHTML(new Date(p.since).toLocaleString("en-US"))}">
+    ${escapeHTML(label)}${count}<span class="muted small"> · ${escapeHTML(kind)} · ${timeAgo(p.since)}</span>
+  </span>`;
+}
+
+function renderShareRow(envID, share) {
+  const connections = share.connections || [];
+  const lastUsed = share.lastUsedAt ? timeAgo(share.lastUsedAt) : "never";
+  const connectedCount = connections.reduce((total, p) => total + (p.count || 1), 0);
+  const connected = connectedCount ? ` · ${connectedCount} connected` : "";
+  return `<div class="share-row">
+    <div>
+      <strong>${escapeHTML(share.label)}</strong>
+      <span class="muted small">by ${escapeHTML(share.createdBy || "unknown")}</span>
+      <div class="share-meta">expires in ${timeUntil(share.expiresAt)} · last used ${lastUsed}${connected}</div>
+    </div>
+    <button class="ghost small danger" data-share-revoke="${escapeHTML(share.id)}" data-share-env="${escapeHTML(envID)}">Revoke</button>
+  </div>`;
+}
+
+function openShare(id) {
+  state.shareEnv = id;
+  els.shareEnv.textContent = id;
+  els.shareLabel.value = "";
+  els.shareTtl.value = "1h";
+  els.shareError.hidden = true;
+  els.shareResult.hidden = true;
+  els.shareUrl.value = "";
+  els.shareSubmit.disabled = false;
+  els.shareSubmit.textContent = "Create link";
+  els.shareDialog.showModal();
+  els.shareLabel.focus();
+}
+
+async function createShare(label, ttl) {
+  const res = await api(`/api/envs/${encodeURIComponent(state.shareEnv)}/shares`, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({label, ttl}),
+  });
+  const share = await res.json();
+  els.shareUrl.value = share.url || "";
+  els.shareResult.hidden = false;
+  els.shareSubmit.textContent = "Create another link";
+  els.shareUrl.focus();
+  els.shareUrl.select();
+  await loadEnvs();
+}
+
+async function revokeShare(envID, shareID) {
+  if (!confirm("Revoke this share link? Connected guests will be disconnected.")) return;
+  await api(`/api/envs/${encodeURIComponent(envID)}/shares/${encodeURIComponent(shareID)}`, {method: "DELETE"});
+  await loadEnvs();
+}
+
+async function openEnvIDE(id) {
+  const win = window.open("about:blank", "_blank");
+  try {
+    const res = await api(`/api/envs/${encodeURIComponent(id)}/ide`, {method: "POST"});
+    const data = await res.json();
+    if (!data.url) throw new Error("URL IDE absente");
+    if (win) {
+      win.opener = null;
+      win.location.href = data.url;
+    } else {
+      window.open(data.url, "_blank", "noopener");
+    }
+  } catch (err) {
+    if (win) win.close();
+    throw err;
+  }
 }
 
 function renderVolumes() {
@@ -388,6 +528,58 @@ function applyTheme(theme) {
 
 els.refresh.addEventListener("click", loadBuilds);
 els.volumesRefresh.addEventListener("click", loadVolumes);
+els.envsRefresh.addEventListener("click", loadEnvs);
+els.envsBody.addEventListener("click", async (e) => {
+  const ide = e.target.closest("[data-env-ide]");
+  if (ide) {
+    try {
+      await openEnvIDE(ide.dataset.envIde);
+    } catch (err) {
+      els.envError.textContent = err.message;
+      els.envError.hidden = false;
+    }
+    return;
+  }
+  const share = e.target.closest("[data-env-share]");
+  if (share) { openShare(share.dataset.envShare); return; }
+  const revoke = e.target.closest("[data-share-revoke]");
+  if (revoke) {
+    try {
+      await revokeShare(revoke.dataset.shareEnv, revoke.dataset.shareRevoke);
+    } catch (err) {
+      els.envError.textContent = err.message;
+      els.envError.hidden = false;
+    }
+  }
+});
+els.shareForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (!state.shareEnv) return;
+  els.shareSubmit.disabled = true;
+  els.shareError.hidden = true;
+  try {
+    await createShare(els.shareLabel.value.trim(), els.shareTtl.value);
+  } catch (err) {
+    els.shareError.textContent = err.message;
+    els.shareError.hidden = false;
+  } finally {
+    els.shareSubmit.disabled = false;
+  }
+});
+els.shareCopy.addEventListener("click", async () => {
+  if (!els.shareUrl.value) return;
+  try {
+    await navigator.clipboard.writeText(els.shareUrl.value);
+  } catch {
+    els.shareUrl.select();
+    document.execCommand("copy");
+  }
+  els.shareCopy.textContent = "Copied";
+  setTimeout(() => { els.shareCopy.textContent = "Copy link"; }, 1500);
+});
+els.shareClose.addEventListener("click", () => els.shareDialog.close());
+els.shareCancel.addEventListener("click", () => els.shareDialog.close());
+els.shareDialog.addEventListener("close", () => { state.shareEnv = null; });
 els.volumesBody.addEventListener("click", async (e) => {
   const resize = e.target.closest("[data-resize]");
   if (resize) { openResize(resize.dataset.resize); return; }
@@ -464,6 +656,16 @@ function timeAgo(iso) {
   return Math.floor(s / 86400) + "d";
 }
 
+function timeUntil(iso) {
+  if (!iso) return "—";
+  const s = Math.floor((new Date(iso).getTime() - Date.now()) / 1000);
+  if (s <= 0) return "expired";
+  if (s < 60) return Math.max(1, s) + "s";
+  if (s < 3600) return Math.floor(s / 60) + " min";
+  if (s < 86400) return Math.floor(s / 3600) + " h";
+  return Math.floor(s / 86400) + "d";
+}
+
 function timeShort(iso) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -481,16 +683,26 @@ function escapeHTML(s) {
     return;
   }
   els.appView.hidden = false;
-  try {
-    await loadBuilds();
-  } catch (err) {
-    els.buildsBody.innerHTML = `<tr><td colspan="6"><p class="error">${escapeHTML(err.message)}</p></td></tr>`;
+  if (state.me.guest) {
+    els.appView.classList.add("guest-mode");
+    els.logout.hidden = true;
+    els.who.textContent = `${state.me.username || "guest"} (guest)`;
+  } else {
+    try {
+      await loadBuilds();
+    } catch (err) {
+      els.buildsBody.innerHTML = `<tr><td colspan="6"><p class="error">${escapeHTML(err.message)}</p></td></tr>`;
+    }
+    await loadVolumes();
   }
-  await loadVolumes();
+  await loadEnvs();
   state.poll = setInterval(() => {
     if (!document.hidden) {
-      loadBuilds();
-      loadVolumes();
+      loadEnvs();
+      if (!state.me.guest) {
+        loadBuilds();
+        loadVolumes();
+      }
     }
   }, 4000);
 })();

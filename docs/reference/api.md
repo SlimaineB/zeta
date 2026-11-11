@@ -92,6 +92,10 @@ Errors use a JSON body:
 | `GET` | `/api/envs/{id}/exec` | Interactive exec WebSocket |
 | `POST` | `/api/envs/{id}/ide` | Enable the IDE sidecar and return the browser URL |
 | `GET` | `/api/envs/{id}/ide/` | Authenticated HTTP/WebSocket reverse proxy to code-server |
+| `POST` | `/api/envs/{id}/shares` | Create a temporary full-access share link |
+| `GET` | `/api/envs/{id}/shares` | List active share links and connected guests |
+| `DELETE` | `/api/envs/{id}/shares/{shareID}` | Revoke a share link |
+| `GET` | `/s/{token}` | Redeem a share link and set the guest cookie |
 | `GET` | `/healthz` | Health check |
 
 Build logs, metrics, and artifacts require the build owner or an `admin` /
@@ -104,6 +108,25 @@ The IDE proxy accepts the normal portal session cookie. It strips the
 preserves `Upgrade` headers for WebSocket traffic. The sidecar itself has
 authentication disabled and listens only on `127.0.0.1`, so it is reachable only
 through the authenticated portal proxy.
+
+### Temporary shares
+
+`POST /api/envs/{id}/shares` accepts `{"ttl":"1h","label":"Alice"}` and returns
+the share ID, expiration, and one-time `url`. The link contains a random bearer
+token. `GET /s/{token}` validates the token, sets an HttpOnly `zeta_share`
+cookie, activates the environment if needed, and redirects to the IDE.
+
+A guest session is scoped to the shared environment. It can use `GET
+/api/envs/{id}/exec`, the IDE proxy, `GET /api/sync/{id}/client`, and
+`POST /api/envs/{id}/activate`. It cannot access builds, volumes, environment
+deletion/deactivation, or share management. `GET /api/envs` returns only the
+shared environment for a guest. `GET /api/envs` includes `connections` and, for
+the owner, `shares` with their connected participants.
+
+Shares expire after their TTL. Revocation removes the token, closes registered
+guest shell/sync sockets, and tears down the IDE proxy when a guest IDE session
+was attached. Shares are stored in portal memory and do not survive a portal
+restart.
 
 ## Builds
 

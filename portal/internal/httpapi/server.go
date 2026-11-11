@@ -34,10 +34,20 @@ type Server struct {
 	auth   *auth.Service
 	sync   *synchub.Hub
 	ide    *ideProxy
+	shares *shareStore
 }
 
 func New(cfg config.Config, buildService *builds.Service, authService *auth.Service, syncHub *synchub.Hub) *Server {
-	return &Server{cfg: cfg, builds: buildService, auth: authService, sync: syncHub, ide: newIDEProxy(buildService)}
+	s := &Server{cfg: cfg, builds: buildService, auth: authService, sync: syncHub, ide: newIDEProxy(buildService), shares: newShareStore()}
+	s.shares.onExpire = func(envID, shareID string) {
+		for _, participant := range s.sync.Presence(envID) {
+			if participant.ShareID == shareID && participant.Kind == "ide" {
+				s.ide.Close(envID)
+				return
+			}
+		}
+	}
+	return s
 }
 
 func (s *Server) Handler() http.Handler {
@@ -46,17 +56,24 @@ func (s *Server) Handler() http.Handler {
 	protected := func(h http.HandlerFunc) http.Handler {
 		return s.auth.RequireAuth(s.sameOriginGuard(h))
 	}
+	shared := func(h http.HandlerFunc) http.Handler {
+		return s.sameOriginGuard(s.requireSession(h))
+	}
 
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte("ok\n"))
 	})
 	mux.HandleFunc("GET /login", s.login)
 	mux.Handle("POST /api/login", s.sameOriginGuard(http.HandlerFunc(s.auth.DevLogin)))
-	mux.Handle("POST /api/logout", s.sameOriginGuard(http.HandlerFunc(s.auth.Logout)))
+	mux.Handle("POST /api/logout", s.sameOriginGuard(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		s.clearShareCookie(w, r)
+		s.auth.Logout(w, r)
+	})))
 	mux.HandleFunc("GET /oidc/login", s.auth.StartOIDC)
 	mux.HandleFunc("GET /oidc/callback", s.auth.OIDCCallback)
+	mux.HandleFunc("GET /s/{token}", s.redeemShare)
 
-	mux.Handle("GET /api/me", protected(s.auth.Me))
+	mux.Handle("GET /api/me", shared(s.auth.Me))
 	mux.Handle("GET /api/profiles", protected(s.profiles))
 	mux.Handle("GET /api/builds", protected(s.listBuilds))
 	mux.Handle("POST /api/builds", protected(s.submitBuild))
@@ -67,19 +84,47 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/volumes/{name}/resize", protected(s.resizeVolume))
 	mux.Handle("DELETE /api/volumes/{name}", protected(s.deleteVolume))
 	mux.Handle("POST /api/envs", protected(s.createEnv))
-	mux.Handle("GET /api/envs", protected(s.listEnvs))
-	mux.Handle("POST /api/envs/{id}/activate", protected(s.activateEnv))
+	mux.Handle("GET /api/envs", shared(s.listEnvs))
+	mux.Handle("POST /api/envs/{id}/activate", shared(s.activateEnv))
 	mux.Handle("POST /api/envs/{id}/deactivate", protected(s.deactivateEnv))
 	mux.Handle("DELETE /api/envs/{id}", protected(s.deleteEnv))
-	mux.Handle("GET /api/envs/{id}/exec", protected(s.envExec))
-	mux.Handle("POST /api/envs/{id}/ide", protected(s.enableEnvIDE))
-	mux.Handle("GET /api/envs/{id}/ide", protected(s.redirectEnvIDE))
-	mux.Handle("GET /api/envs/{id}/ide/", protected(s.envIDE))
+	mux.Handle("GET /api/envs/{id}/exec", shared(s.envExec))
+	mux.Handle("POST /api/envs/{id}/ide", shared(s.enableEnvIDE))
+	mux.Handle("GET /api/envs/{id}/ide", shared(s.redirectEnvIDE))
+	mux.Handle("GET /api/envs/{id}/ide/", shared(s.envIDE))
+	mux.Handle("GET /api/envs/{id}/shares", protected(s.listShares))
+	mux.Handle("POST /api/envs/{id}/shares", protected(s.createShare))
+	mux.Handle("DELETE /api/envs/{id}/shares/{shareID}", protected(s.revokeShare))
 	mux.HandleFunc("GET /api/sync/{id}/agent", s.syncAgent)
-	mux.Handle("GET /api/sync/{id}/client", protected(s.syncClient))
+	mux.Handle("GET /api/sync/{id}/client", shared(s.syncClient))
 
 	mux.HandleFunc("GET /", s.static)
 	return mux
+}
+
+func (s *Server) requireSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if session, err := s.auth.RequestSession(r); err == nil {
+			next.ServeHTTP(w, r.WithContext(auth.WithSession(r.Context(), session)))
+			return
+		}
+		if token := s.shareToken(r); token != "" {
+			share, ok := s.shares.Lookup(token)
+			if ok {
+				session := auth.Session{
+					Username:  share.Label,
+					Guest:     true,
+					ShareID:   share.ID,
+					ShareEnv:  share.EnvID,
+					ExpiresAt: share.ExpiresAt,
+				}
+				next.ServeHTTP(w, r.WithContext(auth.WithSession(r.Context(), session)))
+				return
+			}
+			s.clearShareCookie(w, r)
+		}
+		s.auth.RequireAuth(next).ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) sameOriginGuard(next http.Handler) http.Handler {
@@ -103,6 +148,24 @@ func requestHost(r *http.Request) string {
 		host = strings.TrimSpace(strings.Split(forwarded, ",")[0])
 	}
 	return host
+}
+
+func requestScheme(r *http.Request) string {
+	if r.TLS != nil {
+		return "https"
+	}
+	if forwarded := r.Header.Get("X-Forwarded-Proto"); forwarded != "" {
+		return strings.ToLower(strings.TrimSpace(strings.Split(forwarded, ",")[0]))
+	}
+	return "http"
+}
+
+func requestBaseURL(r *http.Request) string {
+	host := requestHost(r)
+	if host == "" {
+		return ""
+	}
+	return requestScheme(r) + "://" + host
 }
 
 func hostName(host string) string {
@@ -168,6 +231,29 @@ func bearerToken(r *http.Request) string {
 		return strings.TrimSpace(value[len(prefix):])
 	}
 	return ""
+}
+
+type requestIdentity struct {
+	key     string
+	name    string
+	shareID string
+	guest   bool
+}
+
+func (s *Server) requestIdentity(r *http.Request) requestIdentity {
+	session, _ := auth.SessionFromContext(r.Context())
+	if session.Guest {
+		name := strings.TrimSpace(session.Username)
+		if name == "" {
+			name = "guest"
+		}
+		return requestIdentity{key: "share:" + session.ShareID, name: name, shareID: session.ShareID, guest: true}
+	}
+	name := sessionOwner(session)
+	if name == "" {
+		name = "anonymous"
+	}
+	return requestIdentity{key: "user:" + strings.ToLower(name), name: name}
 }
 
 func sessionOwner(session auth.Session) string {
@@ -348,13 +434,34 @@ func (s *Server) createEnv(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, env)
 }
 
+type environmentView struct {
+	domain.Environment
+	Connections []synchub.Participant `json:"connections,omitempty"`
+	Shares      []shareView           `json:"shares,omitempty"`
+}
+
 func (s *Server) listEnvs(w http.ResponseWriter, r *http.Request) {
 	envs, err := s.builds.Environments(r.Context())
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, envs)
+	session, _ := auth.SessionFromContext(r.Context())
+	views := make([]environmentView, 0, len(envs))
+	for _, env := range envs {
+		if session.Guest && !strings.EqualFold(session.ShareEnv, env.ID) {
+			continue
+		}
+		view := environmentView{Environment: env, Connections: s.sync.Presence(env.ID)}
+		if !session.Guest {
+			view.Shares = s.shares.List(env.ID)
+			for i := range view.Shares {
+				view.Shares[i].Connections = shareConnections(view.Connections, view.Shares[i].ID)
+			}
+		}
+		views = append(views, view)
+	}
+	writeJSON(w, http.StatusOK, views)
 }
 
 func authorizeOwner(w http.ResponseWriter, session auth.Session, kind, id, owner string) bool {
@@ -367,6 +474,13 @@ func authorizeOwner(w http.ResponseWriter, session auth.Session, kind, id, owner
 
 func (s *Server) authorizeEnv(w http.ResponseWriter, r *http.Request, id string) bool {
 	session, _ := auth.SessionFromContext(r.Context())
+	if session.Guest {
+		if strings.EqualFold(session.ShareEnv, id) {
+			return true
+		}
+		writeError(w, http.StatusForbidden, fmt.Errorf("environment %s is not shared with this link", id))
+		return false
+	}
 	owner, err := s.builds.EnvironmentOwner(r.Context(), id)
 	if err != nil {
 		if apierrs.IsNotFound(err) {
@@ -377,6 +491,15 @@ func (s *Server) authorizeEnv(w http.ResponseWriter, r *http.Request, id string)
 		return false
 	}
 	return authorizeOwner(w, session, "environment", id, owner)
+}
+
+func (s *Server) authorizeEnvOwner(w http.ResponseWriter, r *http.Request, id string) bool {
+	session, _ := auth.SessionFromContext(r.Context())
+	if session.Guest {
+		writeError(w, http.StatusForbidden, fmt.Errorf("shared links cannot manage environment %s", id))
+		return false
+	}
+	return s.authorizeEnv(w, r, id)
 }
 
 func (s *Server) authorizeBuild(w http.ResponseWriter, r *http.Request, id string) bool {
@@ -391,6 +514,13 @@ func (s *Server) authorizeBuild(w http.ResponseWriter, r *http.Request, id strin
 
 func (s *Server) authorizeSyncTarget(w http.ResponseWriter, r *http.Request, id string) bool {
 	session, _ := auth.SessionFromContext(r.Context())
+	if session.Guest {
+		if strings.EqualFold(session.ShareEnv, id) {
+			return true
+		}
+		writeError(w, http.StatusForbidden, fmt.Errorf("environment %s is not shared with this link", id))
+		return false
+	}
 	if owner, err := s.builds.BuildOwner(r.Context(), id); err == nil {
 		return authorizeOwner(w, session, "build", id, owner)
 	}
@@ -432,6 +562,7 @@ func (s *Server) deactivateEnv(w http.ResponseWriter, r *http.Request) {
 	s.sync.Delete(id)
 	s.sync.Forget(id)
 	s.ide.Close(id)
+	s.shares.RevokeEnv(id)
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "active": false})
 }
 
@@ -447,6 +578,7 @@ func (s *Server) deleteEnv(w http.ResponseWriter, r *http.Request) {
 	s.sync.Delete(id)
 	s.sync.Forget(id)
 	s.ide.Close(id)
+	s.shares.RevokeEnv(id)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -455,10 +587,13 @@ func (s *Server) envExec(w http.ResponseWriter, r *http.Request) {
 	if !s.authorizeEnv(w, r, id) {
 		return
 	}
+	identity := s.requestIdentity(r)
 	serveWebSocket(w, r, func(ws *websocket.Conn) {
 		defer ws.Close()
-		s.sync.BeginExec(id)
-		defer s.sync.EndExec(id)
+		release := s.sync.BeginShell(id, identity.key, identity.name, identity.shareID, identity.guest)
+		defer release()
+		unregister := s.shares.Register(identity.shareID, ws)
+		defer unregister()
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
 		stdin, stdinWriter := io.Pipe()
@@ -608,6 +743,7 @@ func (s *Server) RunIdleReaper(ctx context.Context, timeout time.Duration) {
 			s.sync.Delete(env.ID)
 			s.sync.Forget(env.ID)
 			s.ide.Close(env.ID)
+			s.shares.RevokeEnv(env.ID)
 			log.Printf("env reaper: %s scaled to zero after %s idle", env.ID, timeout)
 		}
 	}
@@ -644,10 +780,13 @@ func (s *Server) syncClient(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.ensureEnvSession(r.Context(), id)
+	identity := s.requestIdentity(r)
 	serveWebSocket(w, r, func(ws *websocket.Conn) {
 		defer ws.Close()
-		s.sync.BeginClient(id)
-		defer s.sync.EndClient(id)
+		release := s.sync.BeginSyncClient(id, identity.key, identity.name, identity.shareID, identity.guest)
+		defer release()
+		unregister := s.shares.Register(identity.shareID, ws)
+		defer unregister()
 		if err := s.sync.AttachClient(id, ws); err != nil {
 			log.Printf("sync client %s: %v", id, err)
 		}

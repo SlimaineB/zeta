@@ -200,6 +200,13 @@ the node (or pullable) and that the portal Role includes `pods/portforward`.
 The sidecar binds to `127.0.0.1:8080`, so a normal HTTP probe from kubelet cannot
 reach it; the portal waits for the container and opens a port-forward instead.
 
+### Share link is rejected
+
+A share link is invalid after its TTL, after `zeta share revoke`, after the
+environment is deactivated or deleted, or after a portal restart. Create a new
+link with `zeta share`. A guest that receives `401 not authenticated` should
+open the `/s/<token>` link again to refresh the guest cookie.
+
 ### Environment stops by itself
 
 This is the idle reaper. Default `--env-idle-timeout` is `15m`; `0` disables it.

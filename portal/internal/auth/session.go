@@ -22,6 +22,9 @@ type Session struct {
 	Email     string    `json:"email"`
 	Groups    []string  `json:"groups"`
 	ExpiresAt time.Time `json:"expiresAt"`
+	Guest     bool      `json:"guest,omitempty"`
+	ShareID   string    `json:"shareId,omitempty"`
+	ShareEnv  string    `json:"shareEnv,omitempty"`
 }
 
 type sessionCtxKey struct{}
@@ -33,6 +36,14 @@ func SessionFromContext(ctx context.Context) (Session, bool) {
 
 func withSession(ctx context.Context, s Session) context.Context {
 	return context.WithValue(ctx, sessionCtxKey{}, s)
+}
+
+func WithSession(ctx context.Context, s Session) context.Context {
+	return withSession(ctx, s)
+}
+
+func (s *Service) RequestSession(r *http.Request) (Session, error) {
+	return s.sessionFromRequest(r)
 }
 
 func (s *Service) setSession(w http.ResponseWriter, r *http.Request, session Session) {

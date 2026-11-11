@@ -1242,7 +1242,7 @@ func (r *Repository) EnsureEnvironmentIDE(ctx context.Context, id string) error 
 		found := false
 		for i := range dep.Spec.Template.Spec.Containers {
 			if dep.Spec.Template.Spec.Containers[i].Name == ideContainerName {
-				if !reflect.DeepEqual(dep.Spec.Template.Spec.Containers[i], desired) {
+				if ideContainerChanged(dep.Spec.Template.Spec.Containers[i], desired) {
 					dep.Spec.Template.Spec.Containers[i] = desired
 					changed = true
 				}
@@ -1274,6 +1274,20 @@ func (r *Repository) EnsureEnvironmentIDE(ctx context.Context, id string) error 
 		_, err = r.apps.Deployments(r.namespace).Update(ctx, dep, metav1.UpdateOptions{})
 		return err
 	})
+}
+
+func ideContainerChanged(existing, desired corev1.Container) bool {
+	if existing.ReadinessProbe != nil || existing.LivenessProbe != nil || existing.StartupProbe != nil {
+		return true
+	}
+	return existing.Image != desired.Image ||
+		!reflect.DeepEqual(existing.Command, desired.Command) ||
+		!reflect.DeepEqual(existing.Args, desired.Args) ||
+		existing.WorkingDir != desired.WorkingDir ||
+		!reflect.DeepEqual(existing.Env, desired.Env) ||
+		!reflect.DeepEqual(existing.Resources, desired.Resources) ||
+		!reflect.DeepEqual(existing.VolumeMounts, desired.VolumeMounts) ||
+		!reflect.DeepEqual(existing.SecurityContext, desired.SecurityContext)
 }
 
 func (r *Repository) ForwardEnvironmentIDE(ctx context.Context, id string) (domain.PortForward, error) {

@@ -262,13 +262,36 @@ func (c *Client) DeleteVolume(ctx context.Context, name string) error {
 }
 
 type Environment struct {
-	ID           string    `json:"id"`
-	Profile      string    `json:"profile"`
-	Owner        string    `json:"owner,omitempty"`
-	Active       bool      `json:"active"`
-	SizeBytes    int64     `json:"sizeBytes"`
-	StorageClass string    `json:"storageClass"`
-	CreatedAt    time.Time `json:"createdAt"`
+	ID           string        `json:"id"`
+	Profile      string        `json:"profile"`
+	Owner        string        `json:"owner,omitempty"`
+	Active       bool          `json:"active"`
+	SizeBytes    int64         `json:"sizeBytes"`
+	StorageClass string        `json:"storageClass"`
+	CreatedAt    time.Time     `json:"createdAt"`
+	Connections  []Participant `json:"connections,omitempty"`
+	Shares       []Share       `json:"shares,omitempty"`
+}
+
+type Participant struct {
+	Name    string    `json:"name"`
+	Kind    string    `json:"kind"`
+	Since   time.Time `json:"since"`
+	ShareID string    `json:"shareId,omitempty"`
+	Guest   bool      `json:"guest,omitempty"`
+	Count   int       `json:"count,omitempty"`
+}
+
+type Share struct {
+	ID          string        `json:"id"`
+	EnvID       string        `json:"envId"`
+	Label       string        `json:"label"`
+	CreatedBy   string        `json:"createdBy"`
+	CreatedAt   time.Time     `json:"createdAt"`
+	ExpiresAt   time.Time     `json:"expiresAt"`
+	LastUsedAt  *time.Time    `json:"lastUsedAt,omitempty"`
+	URL         string        `json:"url,omitempty"`
+	Connections []Participant `json:"connections,omitempty"`
 }
 
 type EnvRequest struct {
@@ -326,6 +349,35 @@ func (c *Client) DeleteEnv(ctx context.Context, id string) error {
 
 func (c *Client) EnvExecURL(id string) (string, error) {
 	return c.wsURL("/api/envs/" + url.PathEscape(id) + "/exec")
+}
+
+func (c *Client) CreateShare(ctx context.Context, id, ttl, label string) (Share, error) {
+	var out Share
+	res, err := c.request(ctx, http.MethodPost, "/api/envs/"+url.PathEscape(id)+"/shares", map[string]string{"ttl": ttl, "label": label})
+	if err != nil {
+		return Share{}, err
+	}
+	defer res.Body.Close()
+	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+		return Share{}, err
+	}
+	return out, nil
+}
+
+func (c *Client) Shares(ctx context.Context, id string) ([]Share, error) {
+	var out []Share
+	if err := c.getJSON(ctx, "/api/envs/"+url.PathEscape(id)+"/shares", &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *Client) RevokeShare(ctx context.Context, id, shareID string) error {
+	res, err := c.request(ctx, http.MethodDelete, "/api/envs/"+url.PathEscape(id)+"/shares/"+url.PathEscape(shareID), nil)
+	if err != nil {
+		return err
+	}
+	return res.Body.Close()
 }
 
 func (c *Client) EnableEnvIDE(ctx context.Context, id string) (string, error) {
