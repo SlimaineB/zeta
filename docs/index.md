@@ -10,37 +10,37 @@ The web UI is a monitoring dashboard, not a build form.
 
 <div class="grid cards" markdown>
 
--   :material-server-network:{ .lg .middle } **Operate the platform**
+-   🌐 **Operate the platform**
 
     ---
 
     Install the portal with Helm, configure OIDC and storage, and run upgrades.
 
-    [:octicons-arrow-right-24: Platform overview](platform/index.md)
+    [➡️ Platform overview](platform/index.md)
 
--   :material-laptop:{ .lg .middle } **Build with Zeta**
+-   💻 **Build with Zeta**
 
     ---
 
     Install the CLI with `curl | sh` or PowerShell, then build without a kubeconfig.
 
-    [:octicons-arrow-right-24: Developer overview](developer/index.md)
+    [➡️ Developer overview](developer/index.md)
 
--   :material-console:{ .lg .middle } **Use the CLI**
+-   ⌨️ **Use the CLI**
 
     ---
 
     Local or Git builds, live logs, artifacts, volumes, and environments.
 
-    [:octicons-arrow-right-24: CLI guide](user-guide/cli.md)
+    [➡️ CLI guide](user-guide/cli.md)
 
--   :material-sitemap:{ .lg .middle } **Understand the architecture**
+-   🗺️ **Understand the architecture**
 
     ---
 
     Control plane, execution plane, Jobs, PVCs, and the sync hub.
 
-    [:octicons-arrow-right-24: Architecture](reference/architecture.md)
+    [➡️ Architecture](reference/architecture.md)
 
 </div>
 
