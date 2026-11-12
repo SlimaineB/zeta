@@ -916,6 +916,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#429-concurrent-build-limit-or-active-environment-limit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        429 / concurrent build limit or active environment limit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#shell-exits-immediately" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1937,6 +1948,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#429-concurrent-build-limit-or-active-environment-limit" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        429 / concurrent build limit or active environment limit
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#shell-exits-immediately" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2188,11 +2210,33 @@ corruption. Check the portal logs and the Job status:</p>
 <h3 id="zeta-activate-hangs"><code>zeta activate</code> hangs<a class="headerlink" href="#zeta-activate-hangs" title="Permanent link">&para;</a></h3>
 <p>Check the pod and the sync sidecar:</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>pods
-<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>syncd
-<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>env
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>describe<span class="w"> </span>pod<span class="w"> </span>-l<span class="w"> </span>zeta.io/env<span class="o">=</span>&lt;id&gt;
+<a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>get<span class="w"> </span>pvc
+<a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>syncd
+<a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>kubectl<span class="w"> </span>--context<span class="w"> </span><span class="nb">local</span><span class="w"> </span>-n<span class="w"> </span>zeta-poc<span class="w"> </span>logs<span class="w"> </span>deploy/zeta-env-&lt;id&gt;<span class="w"> </span>-c<span class="w"> </span>env
 </code></pre></div>
 <p>Common causes: missing image, PVC not bound, or the portal cannot reach the
 Deployment.</p>
+<p>The portal now waits up to 90 seconds for the environment pod and reports an
+actionable reason instead of a generic "not running":</p>
+<ul>
+<li><code>cannot mount its volume (FailedMount): ...</code> — the workspace or cache PVC
+  cannot be attached. Check the StorageClass, the PVC events and the node's
+  disk space.</li>
+<li><code>is unschedulable: ...</code> — no node satisfies the profile resource requests.</li>
+<li><code>image ... cannot be pulled (ImagePullBackOff): ...</code> — wrong image name or
+  missing pull secret.</li>
+<li><code>cannot start (CreateContainerConfigError): ...</code> — invalid env/secret
+  reference in the profile.</li>
+</ul>
+<p>If the volume is stuck, recreate the environment after fixing the StorageClass
+or free space; the workspace PVC is preserved on scale-down but a broken mount
+requires a new pod.</p>
+<h3 id="429-concurrent-build-limit-or-active-environment-limit"><code>429</code> / <code>concurrent build limit</code> or <code>active environment limit</code><a class="headerlink" href="#429-concurrent-build-limit-or-active-environment-limit" title="Permanent link">&para;</a></h3>
+<p>Zeta enforces fair-use quotas. A <code>429</code> means you reached
+<code>--max-builds-per-user</code> or <code>--max-envs-per-user</code>. Wait for a build to finish, or
+run <code>zeta deactivate --name &lt;env&gt;</code> before activating another environment. See
+<a href="../../reference/configuration/#fair-use-and-parallel-tasks">configuration</a>.</p>
 <h3 id="shell-exits-immediately">Shell exits immediately<a class="headerlink" href="#shell-exits-immediately" title="Permanent link">&para;</a></h3>
 <p>The profile image must contain a shell (<code>sh</code> or <code>bash</code>). Check the <code>env</code>
 container logs and the image entrypoint.</p>
