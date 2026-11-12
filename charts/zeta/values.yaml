@@ -19,6 +19,9 @@ portal:
   volumeQuota: 20Gi
   volumeMax: 10Gi
   envIdleTimeout: 15m
+  maxBuildsPerUser: 3
+  maxEnvsPerUser: 2
+  syncBytesPerSec: 8388608
   podAnnotations: {}
   resources:
     requests:

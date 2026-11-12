@@ -60,7 +60,7 @@ func StartClient(ctx context.Context, opts ClientOptions) (*Session, error) {
 		_ = conn.Close()
 		return nil, err
 	}
-	helloCtx, cancelHello := context.WithTimeout(ctx, 20*time.Second)
+	helloCtx, cancelHello := context.WithTimeout(ctx, 90*time.Second)
 	select {
 	case <-helloCtx.Done():
 		cancelHello()
@@ -69,7 +69,7 @@ func StartClient(ctx context.Context, opts ClientOptions) (*Session, error) {
 		if err := parent.Err(); err != nil {
 			return nil, err
 		}
-		return nil, fmt.Errorf("agent de synchronisation indisponible ou obsolète; recréez l'environnement")
+		return nil, fmt.Errorf("environment is not reachable yet (still starting or its volume failed to mount); check `zeta ls` or the dashboard, then retry")
 	case err := <-s.errs:
 		cancelHello()
 		cancel()

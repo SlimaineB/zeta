@@ -166,12 +166,37 @@ Check the pod and the sync sidecar:
 
 ```bash
 kubectl --context local -n zeta-poc get pods
+kubectl --context local -n zeta-poc describe pod -l zeta.io/env=<id>
+kubectl --context local -n zeta-poc get pvc
 kubectl --context local -n zeta-poc logs deploy/zeta-env-<id> -c syncd
 kubectl --context local -n zeta-poc logs deploy/zeta-env-<id> -c env
 ```
 
 Common causes: missing image, PVC not bound, or the portal cannot reach the
 Deployment.
+
+The portal now waits up to 90 seconds for the environment pod and reports an
+actionable reason instead of a generic "not running":
+
+- `cannot mount its volume (FailedMount): ...` — the workspace or cache PVC
+  cannot be attached. Check the StorageClass, the PVC events and the node's
+  disk space.
+- `is unschedulable: ...` — no node satisfies the profile resource requests.
+- `image ... cannot be pulled (ImagePullBackOff): ...` — wrong image name or
+  missing pull secret.
+- `cannot start (CreateContainerConfigError): ...` — invalid env/secret
+  reference in the profile.
+
+If the volume is stuck, recreate the environment after fixing the StorageClass
+or free space; the workspace PVC is preserved on scale-down but a broken mount
+requires a new pod.
+
+### `429` / `concurrent build limit` or `active environment limit`
+
+Zeta enforces fair-use quotas. A `429` means you reached
+`--max-builds-per-user` or `--max-envs-per-user`. Wait for a build to finish, or
+run `zeta deactivate --name <env>` before activating another environment. See
+[configuration](../reference/configuration.md#fair-use-and-parallel-tasks).
 
 ### Shell exits immediately
 

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -22,6 +23,9 @@ type Config struct {
 	VolumeQuotaBytes int64
 	VolumeMaxBytes   int64
 	EnvIdleTimeout   time.Duration
+	MaxBuildsPerUser int
+	MaxEnvsPerUser   int
+	SyncBytesPerSec  int64
 	Auth             AuthConfig
 }
 
@@ -78,6 +82,9 @@ func Load(args []string) (Config, error) {
 	volumeQuota := env("ZETA_VOLUME_QUOTA", "20Gi")
 	volumeMax := env("ZETA_VOLUME_MAX", "10Gi")
 	envIdle := env("ZETA_ENV_IDLE_TIMEOUT", "15m")
+	maxBuilds := env("ZETA_MAX_BUILDS_PER_USER", "3")
+	maxEnvs := env("ZETA_MAX_ENVS_PER_USER", "2")
+	syncRate := env("ZETA_SYNC_BYTES_PER_SEC", "8388608")
 
 	fs := flag.NewFlagSet("zeta", flag.ContinueOnError)
 	fs.StringVar(&cfg.Addr, "addr", cfg.Addr, "portal listen address")
@@ -92,6 +99,9 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&volumeQuota, "volume-quota", volumeQuota, "Zeta total volume quota")
 	fs.StringVar(&volumeMax, "volume-max", volumeMax, "maximum volume size in Zeta")
 	fs.StringVar(&envIdle, "env-idle-timeout", envIdle, "scale environments to zero after this idle duration (0 disables)")
+	fs.StringVar(&maxBuilds, "max-builds-per-user", maxBuilds, "maximum concurrent builds per user (0 disables)")
+	fs.StringVar(&maxEnvs, "max-envs-per-user", maxEnvs, "maximum active environments per user (0 disables)")
+	fs.StringVar(&syncRate, "sync-bytes-per-sec", syncRate, "per-session sync bandwidth cap in bytes/sec (0 disables)")
 	fs.StringVar(&cfg.Auth.OIDCIssuer, "oidc-issuer", cfg.Auth.OIDCIssuer, "OIDC issuer")
 	fs.StringVar(&cfg.Auth.OIDCDiscoveryURL, "oidc-discovery-url", cfg.Auth.OIDCDiscoveryURL, "OIDC discovery URL (default: issuer)")
 	fs.StringVar(&cfg.Auth.OIDCAuthorizationURL, "oidc-authorization-url", cfg.Auth.OIDCAuthorizationURL, "OIDC authorization endpoint override")
@@ -133,7 +143,26 @@ func Load(args []string) (Config, error) {
 		return Config{}, fmt.Errorf("--env-idle-timeout invalid: %q", envIdle)
 	}
 	cfg.EnvIdleTimeout = idle
+	if cfg.MaxBuildsPerUser, err = nonNegativeInt("--max-builds-per-user", maxBuilds); err != nil {
+		return Config{}, err
+	}
+	if cfg.MaxEnvsPerUser, err = nonNegativeInt("--max-envs-per-user", maxEnvs); err != nil {
+		return Config{}, err
+	}
+	rate, err := strconv.ParseInt(syncRate, 10, 64)
+	if err != nil || rate < 0 {
+		return Config{}, fmt.Errorf("--sync-bytes-per-sec invalid: %q", syncRate)
+	}
+	cfg.SyncBytesPerSec = rate
 	return cfg, nil
+}
+
+func nonNegativeInt(name, raw string) (int, error) {
+	v, err := strconv.Atoi(raw)
+	if err != nil || v < 0 {
+		return 0, fmt.Errorf("%s invalid: %q", name, raw)
+	}
+	return v, nil
 }
 
 func env(key, fallback string) string {

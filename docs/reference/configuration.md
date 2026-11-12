@@ -19,6 +19,9 @@ precedence.
 | `--volume-quota` | `ZETA_VOLUME_QUOTA` | `20Gi` | Total capacity of managed volumes |
 | `--volume-max` | `ZETA_VOLUME_MAX` | `10Gi` | Maximum size of one managed volume |
 | `--env-idle-timeout` | `ZETA_ENV_IDLE_TIMEOUT` | `15m` | Scale idle environments to zero (`0` disables) |
+| `--max-builds-per-user` | `ZETA_MAX_BUILDS_PER_USER` | `3` | Maximum concurrent builds per user (`0` disables) |
+| `--max-envs-per-user` | `ZETA_MAX_ENVS_PER_USER` | `2` | Maximum active environments per user (`0` disables) |
+| `--sync-bytes-per-sec` | `ZETA_SYNC_BYTES_PER_SEC` | `8388608` | Per-session sync bandwidth cap in bytes/sec (`0` disables) |
 | `--oidc-issuer` | `ZETA_OIDC_ISSUER` | empty | OIDC issuer |
 | `--oidc-discovery-url` | `ZETA_OIDC_DISCOVERY_URL` | issuer | OIDC discovery URL |
 | `--oidc-authorization-url` | `ZETA_OIDC_AUTHORIZATION_URL` | discovery | OIDC authorization endpoint override |
@@ -107,6 +110,22 @@ With `--oidc-dev`, the portal accepts the built-in users:
 - the portal checks at most once per minute;
 - an environment with an attached shell or sync client is never reaped;
 - scaling down preserves the workspace PVC.
+
+## Fair use and parallel tasks
+
+Zeta limits how much a single user can consume so one person cannot starve the
+cluster or saturate the portal:
+
+- `--max-builds-per-user` caps concurrent builds (pending or running) per owner.
+  Exceeding it returns HTTP `429` with a clear message.
+- `--max-envs-per-user` caps simultaneously active environments per owner.
+  Re-activating an environment that is already running is always allowed.
+- `--sync-bytes-per-sec` caps the bandwidth of each sync session in both
+  directions. File chunks are paced server-side by the sync hub, so a large
+  repository mirror cannot consume the whole uplink.
+- `0` disables any of these limits.
+
+Profile-level `maxConcurrent` still applies in addition to the per-user limits.
 
 ## Image overrides
 

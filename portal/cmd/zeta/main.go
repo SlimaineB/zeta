@@ -42,8 +42,11 @@ func main() {
 	if err := repo.EnsurePVCs(ctx); err != nil {
 		log.Printf("warning: PVCs not initialized: %v", err)
 	}
-	buildService := builds.NewService(repo, registry)
-	api := httpapi.New(cfg, buildService, authService, synchub.NewHub())
+	buildService := builds.NewService(repo, registry, builds.Limits{
+		MaxBuildsPerUser: cfg.MaxBuildsPerUser,
+		MaxEnvsPerUser:   cfg.MaxEnvsPerUser,
+	})
+	api := httpapi.New(cfg, buildService, authService, synchub.NewHub(cfg.SyncBytesPerSec))
 	go api.RunIdleReaper(ctx, cfg.EnvIdleTimeout)
 
 	srv := &http.Server{

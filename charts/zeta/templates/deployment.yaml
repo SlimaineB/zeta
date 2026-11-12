@@ -23,87 +23,6 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      securityContext:
-        {{- toYaml .Values.portal.podSecurityContext | nindent 8 }}
-      containers:
-        - name: portal
-          image: {{ include "zeta.image" . | quote }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          args:
-            - -addr={{ .Values.portal.addr }}
-            - -namespace={{ .Release.Namespace }}
-            - -storage-class={{ .Values.portal.storageClass }}
-            - -volume-quota={{ .Values.portal.volumeQuota }}
-            - -volume-max={{ .Values.portal.volumeMax }}
-            - -env-idle-timeout={{ .Values.portal.envIdleTimeout }}
-            {{- if .Values.image.registry }}
-            - -image-registry={{ .Values.image.registry }}
-            {{- end }}
-            - -image-tag={{ include "zeta.imageTag" . }}
-            - -ide-image={{ if .Values.ide.enabled }}{{ .Values.ide.image.repository }}:{{ .Values.ide.image.tag }}{{ end }}
-            {{- if .Values.auth.dev }}
-            - -oidc-dev
-            {{- else }}
-            - -oidc-issuer={{ required "auth.oidc.issuer is required when auth.dev is false" .Values.auth.oidc.issuer }}
-            {{- if .Values.auth.oidc.discoveryURL }}
-            - -oidc-discovery-url={{ .Values.auth.oidc.discoveryURL }}
-            {{- end }}
-            {{- if .Values.auth.oidc.authorizationURL }}
-            - -oidc-authorization-url={{ .Values.auth.oidc.authorizationURL }}
-            {{- end }}
-            - -oidc-client-id={{ .Values.auth.oidc.clientID }}
-            {{- if .Values.auth.oidc.redirectURL }}
-            - -oidc-redirect-url={{ .Values.auth.oidc.redirectURL }}
-            {{- end }}
-            - -oidc-scopes={{ .Values.auth.oidc.scopes }}
-            {{- if .Values.auth.oidc.allowedGroups }}
-            - -oidc-allowed-groups={{ .Values.auth.oidc.allowedGroups }}
-            {{- end }}
-            {{- if .Values.auth.oidc.allowedUsers }}
-            - -oidc-allowed-users={{ .Values.auth.oidc.allowedUsers }}
-            {{- end }}
-            - -oidc-username-claim={{ .Values.auth.oidc.usernameClaim }}
-            - -oidc-email-claim={{ .Values.auth.oidc.emailClaim }}
-            - -oidc-groups-claim={{ .Values.auth.oidc.groupsClaim }}
-            {{- end }}
-            - -oidc-session-ttl={{ .Values.auth.sessionTTL }}
-            {{- if .Values.auth.secureCookie }}
-            - -secure-cookie
-            {{- end }}
-            {{- if or .Values.profiles.existingConfigMap .Values.profiles.inline }}
-            - -profiles-file=/etc/zeta/profiles.yaml
-            {{- end }}
-            {{- range .Values.portal.extraArgs }}
-            - {{ . | quote }}
-            {{- end }}
-          ports:
-            - name: http
-              containerPort: 8080
-          env:
-            - name: ZETA_OIDC_SESSION_KEY
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "zeta.authSecretName" . }}
-                  key: session-key
-            {{- if not .Values.auth.dev }}
-            - name: ZETA_OIDC_CLIENT_SECRET
-              valueFrom:
-                secretKeyRef:
-                  name: {{ include "zeta.authSecretName" . }}
-                  key: oidc-client-secret
-                  optional: true
-            {{- end }}
-            {{- with .Values.portal.extraEnv }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
-          volumeMounts:
-            - name: contexts
-              mountPath: /contexts
-            {{- if or .Values.profiles.existingConfigMap .Values.profiles.inline }}
-            - name: profiles
-              mountPath: /etc/zeta
-              readOnly: true
-            {{- end }}
       terminationGracePeriodSeconds: 30
       securityContext:
         {{- toYaml .Values.portal.podSecurityContext | nindent 8 }}
@@ -118,6 +37,9 @@ spec:
             - -volume-quota={{ .Values.portal.volumeQuota }}
             - -volume-max={{ .Values.portal.volumeMax }}
             - -env-idle-timeout={{ .Values.portal.envIdleTimeout }}
+            - -max-builds-per-user={{ .Values.portal.maxBuildsPerUser | int }}
+            - -max-envs-per-user={{ .Values.portal.maxEnvsPerUser | int }}
+            - -sync-bytes-per-sec={{ .Values.portal.syncBytesPerSec | int64 }}
             {{- if .Values.image.registry }}
             - -image-registry={{ .Values.image.registry }}
             {{- end }}

@@ -61,8 +61,10 @@ func containsDotDot(s string) bool {
 }
 
 type fakeRepo struct {
-	builds  []domain.Build
-	created int
+	builds   []domain.Build
+	envs     []domain.Environment
+	envOwner string
+	created  int
 }
 
 func (f *fakeRepo) Create(context.Context, domain.BuildSpec) (string, error) {
@@ -85,11 +87,15 @@ func (f *fakeRepo) DeleteVolume(context.Context, string) error         { return 
 func (f *fakeRepo) EnsureEnvironment(context.Context, domain.EnvSpec) (domain.Environment, error) {
 	return domain.Environment{}, nil
 }
-func (f *fakeRepo) ListEnvironments(context.Context) ([]domain.Environment, error) { return nil, nil }
-func (f *fakeRepo) SetEnvironmentActive(context.Context, string, bool) error       { return nil }
-func (f *fakeRepo) DeleteEnvironment(context.Context, string) error                { return nil }
-func (f *fakeRepo) EnvironmentOwner(context.Context, string) (string, error)       { return "", nil }
-func (f *fakeRepo) EnvironmentToken(context.Context, string) (string, error)       { return "", nil }
+func (f *fakeRepo) ListEnvironments(context.Context) ([]domain.Environment, error) {
+	return f.envs, nil
+}
+func (f *fakeRepo) SetEnvironmentActive(context.Context, string, bool) error { return nil }
+func (f *fakeRepo) DeleteEnvironment(context.Context, string) error          { return nil }
+func (f *fakeRepo) EnvironmentOwner(context.Context, string) (string, error) {
+	return f.envOwner, nil
+}
+func (f *fakeRepo) EnvironmentToken(context.Context, string) (string, error) { return "", nil }
 func (f *fakeRepo) ExecEnvironment(context.Context, string, domain.ExecOptions) error {
 	return nil
 }
@@ -109,5 +115,47 @@ func TestEnsureCapacityDefault(t *testing.T) {
 	}
 	if err := svc.ensureCapacity(context.Background(), domain.Profile{Name: "cpp"}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestPerUserBuildLimit(t *testing.T) {
+	repo := &fakeRepo{builds: []domain.Build{
+		{Status: domain.StatusRunning, Owner: "Alice@Example.com"},
+		{Status: domain.StatusPending, Owner: "alice@example.com"},
+		{Status: domain.StatusSucceeded, Owner: "alice@example.com"},
+	}}
+	svc := NewService(repo, nil, Limits{MaxBuildsPerUser: 2})
+	if err := svc.ensureUserBuildCapacity(context.Background(), "alice@example.com"); err == nil {
+		t.Fatal("expected per-user build limit error")
+	}
+	if err := svc.ensureUserBuildCapacity(context.Background(), "bob@example.com"); err != nil {
+		t.Fatalf("other user should not be limited: %v", err)
+	}
+	unlimited := NewService(repo, nil, Limits{MaxBuildsPerUser: 0})
+	if err := unlimited.ensureUserBuildCapacity(context.Background(), "alice@example.com"); err != nil {
+		t.Fatalf("disabled limit should allow: %v", err)
+	}
+}
+
+func TestPerUserEnvLimit(t *testing.T) {
+	repo := &fakeRepo{
+		envOwner: "alice@example.com",
+		envs: []domain.Environment{
+			{ID: "one", Owner: "alice@example.com", Active: true},
+			{ID: "two", Owner: "alice@example.com", Active: true},
+			{ID: "three", Owner: "alice@example.com", Active: false},
+			{ID: "other", Owner: "bob@example.com", Active: true},
+		},
+	}
+	svc := NewService(repo, nil, Limits{MaxEnvsPerUser: 2})
+	if err := svc.ActivateEnvironment(context.Background(), "three"); err == nil {
+		t.Fatal("expected per-user environment limit error")
+	}
+	if err := svc.ActivateEnvironment(context.Background(), "one"); err != nil {
+		t.Fatalf("activating an already active environment should be allowed: %v", err)
+	}
+	roomy := NewService(repo, nil, Limits{MaxEnvsPerUser: 3})
+	if err := roomy.ActivateEnvironment(context.Background(), "three"); err != nil {
+		t.Fatalf("limit with room should allow: %v", err)
 	}
 }

@@ -1,5 +1,6 @@
 # Build outputs
 /cli/bin/
+/cli/zeta.exe
 /portal/bin/
 /platform/out/
 **/artifacts/

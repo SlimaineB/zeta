@@ -15,14 +15,31 @@ import (
 
 var commitPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$`)
 
+type Limits struct {
+	MaxBuildsPerUser int
+	MaxEnvsPerUser   int
+}
+
+// LimitError reports that a profile or per-user quota was exceeded.
+type LimitError struct {
+	Message string
+}
+
+func (e *LimitError) Error() string { return e.Message }
+
 type Service struct {
 	repo     domain.BuildRepository
 	registry *Registry
+	limits   Limits
 	mu       sync.Mutex
 }
 
-func NewService(repo domain.BuildRepository, registry *Registry) *Service {
-	return &Service{repo: repo, registry: registry}
+func NewService(repo domain.BuildRepository, registry *Registry, limits ...Limits) *Service {
+	var l Limits
+	if len(limits) > 0 {
+		l = limits[0]
+	}
+	return &Service{repo: repo, registry: registry, limits: l}
 }
 
 func (s *Service) Profiles() []domain.Profile {
@@ -53,6 +70,9 @@ func (s *Service) Submit(ctx context.Context, req domain.SubmitRequest, owner st
 	if err := s.ensureCapacity(ctx, profile); err != nil {
 		return "", err
 	}
+	if err := s.ensureUserBuildCapacity(ctx, owner); err != nil {
+		return "", err
+	}
 	return s.repo.Create(ctx, domain.BuildSpec{
 		Profile: profile,
 		Repo:    repo,
@@ -80,6 +100,10 @@ func (s *Service) SubmitContext(ctx context.Context, req domain.SubmitRequest, o
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.ensureCapacity(ctx, profile); err != nil {
+		_ = s.repo.DeleteContext(ctx, contextPath)
+		return "", err
+	}
+	if err := s.ensureUserBuildCapacity(ctx, owner); err != nil {
 		_ = s.repo.DeleteContext(ctx, contextPath)
 		return "", err
 	}
@@ -114,7 +138,32 @@ func (s *Service) ensureCapacity(ctx context.Context, profile domain.Profile) er
 		}
 	}
 	if active >= limit {
-		return fmt.Errorf("concurrent build limit reached for profile %s (%d/%d)", profile.Name, active, limit)
+		return &LimitError{Message: fmt.Sprintf("concurrent build limit reached for profile %s (%d/%d)", profile.Name, active, limit)}
+	}
+	return nil
+}
+
+func (s *Service) ensureUserBuildCapacity(ctx context.Context, owner string) error {
+	limit := s.limits.MaxBuildsPerUser
+	owner = strings.TrimSpace(owner)
+	if limit <= 0 || owner == "" {
+		return nil
+	}
+	builds, err := s.repo.List(ctx)
+	if err != nil {
+		return err
+	}
+	active := 0
+	for _, b := range builds {
+		if b.Status != domain.StatusPending && b.Status != domain.StatusRunning {
+			continue
+		}
+		if strings.EqualFold(strings.TrimSpace(b.Owner), owner) {
+			active++
+		}
+	}
+	if active >= limit {
+		return &LimitError{Message: fmt.Sprintf("you already have %d build(s) in progress (limit %d); wait for one to finish or check `zeta ls`", active, limit)}
 	}
 	return nil
 }
@@ -211,7 +260,45 @@ func (s *Service) Environments(ctx context.Context) ([]domain.Environment, error
 }
 
 func (s *Service) ActivateEnvironment(ctx context.Context, id string) error {
+	if err := s.ensureUserEnvCapacity(ctx, id); err != nil {
+		return err
+	}
 	return s.repo.SetEnvironmentActive(ctx, id, true)
+}
+
+func (s *Service) ensureUserEnvCapacity(ctx context.Context, id string) error {
+	limit := s.limits.MaxEnvsPerUser
+	if limit <= 0 {
+		return nil
+	}
+	owner, err := s.repo.EnvironmentOwner(ctx, id)
+	if err != nil {
+		return err
+	}
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return nil
+	}
+	envs, err := s.repo.ListEnvironments(ctx)
+	if err != nil {
+		return err
+	}
+	active := 0
+	for _, env := range envs {
+		if !env.Active {
+			continue
+		}
+		if strings.EqualFold(env.ID, id) {
+			return nil
+		}
+		if strings.EqualFold(strings.TrimSpace(env.Owner), owner) {
+			active++
+		}
+	}
+	if active >= limit {
+		return &LimitError{Message: fmt.Sprintf("you already have %d active environment(s) (limit %d); run `zeta deactivate --name <env>` first", active, limit)}
+	}
+	return nil
 }
 
 func (s *Service) DeactivateEnvironment(ctx context.Context, id string) error {

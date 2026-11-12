@@ -1,6 +1,7 @@
 package sync
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"fmt"
@@ -9,15 +10,17 @@ import (
 	"time"
 
 	"golang.org/x/net/websocket"
+	"golang.org/x/time/rate"
 )
 
 type Hub struct {
-	mu        sync.Mutex
-	sessions  map[string]*session
-	activity  map[string]time.Time
-	clients   map[string]int
-	execs     map[string]int
-	presences map[string]map[string]*presence
+	mu             sync.Mutex
+	sessions       map[string]*session
+	activity       map[string]time.Time
+	clients        map[string]int
+	execs          map[string]int
+	presences      map[string]map[string]*presence
+	maxBytesPerSec int64
 }
 
 type Participant struct {
@@ -45,16 +48,34 @@ type session struct {
 	started    bool
 	done       chan struct{}
 	closeOnce  sync.Once
+	limiter    *rate.Limiter
 }
 
-func NewHub() *Hub {
-	return &Hub{
-		sessions:  map[string]*session{},
-		activity:  map[string]time.Time{},
-		clients:   map[string]int{},
-		execs:     map[string]int{},
-		presences: map[string]map[string]*presence{},
+func NewHub(maxBytesPerSec ...int64) *Hub {
+	var limit int64
+	if len(maxBytesPerSec) > 0 {
+		limit = maxBytesPerSec[0]
 	}
+	return &Hub{
+		sessions:       map[string]*session{},
+		activity:       map[string]time.Time{},
+		clients:        map[string]int{},
+		execs:          map[string]int{},
+		presences:      map[string]map[string]*presence{},
+		maxBytesPerSec: limit,
+	}
+}
+
+func (h *Hub) newSession(id, token string) *session {
+	s := &session{id: id, token: token, done: make(chan struct{})}
+	if h.maxBytesPerSec > 0 {
+		burst := int(h.maxBytesPerSec)
+		if burst < 2<<20 {
+			burst = 2 << 20
+		}
+		s.limiter = rate.NewLimiter(rate.Limit(h.maxBytesPerSec), burst)
+	}
+	return s
 }
 
 // Touch records user activity for an environment, resetting its idle timer.
@@ -235,7 +256,7 @@ func (h *Hub) Create(id, token string) {
 	if old := h.sessions[id]; old != nil {
 		h.closeLocked(old)
 	}
-	h.sessions[id] = &session{id: id, token: token, done: make(chan struct{})}
+	h.sessions[id] = h.newSession(id, token)
 }
 
 // Ensure creates the session if it does not exist yet, or updates its token.
@@ -250,7 +271,7 @@ func (h *Hub) Ensure(id, token string) {
 		}
 		return
 	}
-	h.sessions[id] = &session{id: id, token: token, done: make(chan struct{})}
+	h.sessions[id] = h.newSession(id, token)
 }
 
 func (h *Hub) Has(id string) bool {
@@ -346,18 +367,25 @@ func (h *Hub) AttachClient(id string, conn *websocket.Conn) error {
 }
 
 func (h *Hub) relay(s *session) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	defer h.close(s)
 	errs := make(chan error, 2)
-	go func() { errs <- pipe(s.agent, s.client) }()
-	go func() { errs <- pipe(s.client, s.agent) }()
+	go func() { errs <- pipe(ctx, s.agent, s.client, s.limiter) }()
+	go func() { errs <- pipe(ctx, s.client, s.agent, s.limiter) }()
 	<-errs
 }
 
-func pipe(dst, src *websocket.Conn) error {
+func pipe(ctx context.Context, dst, src *websocket.Conn, limiter *rate.Limiter) error {
 	for {
 		var msg []byte
 		if err := websocket.Message.Receive(src, &msg); err != nil {
 			return err
+		}
+		if limiter != nil {
+			if err := limiter.WaitN(ctx, len(msg)); err != nil {
+				return err
+			}
 		}
 		if err := websocket.Message.Send(dst, msg); err != nil {
 			return err

@@ -1386,20 +1386,10 @@ func (r *Repository) forwardPodPort(ctx context.Context, pod string, port int) (
 	}, nil
 }
 
+const envStartTimeout = 90 * time.Second
+
 func (r *Repository) ExecEnvironment(ctx context.Context, id string, opts domain.ExecOptions) error {
-	var pod string
-	var err error
-	for attempt := 0; attempt < 10; attempt++ {
-		pod, err = r.envPod(ctx, id)
-		if err == nil {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(500 * time.Millisecond):
-		}
-	}
+	pod, err := r.waitEnvPod(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -1433,22 +1423,98 @@ func (r *Repository) ExecEnvironment(ctx context.Context, id string, opts domain
 	return executor.StreamWithContext(ctx, streamOpts)
 }
 
-func (r *Repository) envPod(ctx context.Context, id string) (string, error) {
+// waitEnvPod waits for the environment pod's main container to be running.
+// It returns early with an actionable message when the pod is definitively
+// stuck (unschedulable, image pull failure, bad config) and otherwise keeps
+// waiting until envStartTimeout before surfacing the last observed problem.
+func (r *Repository) waitEnvPod(ctx context.Context, id string) (string, error) {
+	deadline := time.Now().Add(envStartTimeout)
+	var lastErr error
+	for {
+		pod, definitive, err := r.envPod(ctx, id)
+		if err == nil {
+			return pod, nil
+		}
+		lastErr = err
+		if definitive {
+			return "", err
+		}
+		if time.Now().After(deadline) {
+			return "", fmt.Errorf("environment %s did not start within %s: %w", id, envStartTimeout, lastErr)
+		}
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		case <-time.After(time.Second):
+		}
+	}
+}
+
+func (r *Repository) envPod(ctx context.Context, id string) (string, bool, error) {
 	pods, err := r.core.Pods(r.namespace).List(ctx, metav1.ListOptions{LabelSelector: envLabel + "=" + id})
 	if err != nil {
-		return "", err
+		return "", true, err
 	}
-	for _, pod := range pods.Items {
-		if pod.DeletionTimestamp != nil || pod.Status.Phase != corev1.PodRunning {
+	if len(pods.Items) == 0 {
+		return "", false, fmt.Errorf("environment %s has no pod yet (still scheduling)", id)
+	}
+	var pending string
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.DeletionTimestamp != nil {
 			continue
 		}
-		for _, status := range pod.Status.ContainerStatuses {
-			if status.Name == envContainerName && status.State.Running != nil {
-				return pod.Name, nil
+		if pod.Status.Phase == corev1.PodRunning {
+			for _, status := range pod.Status.ContainerStatuses {
+				if status.Name == envContainerName && status.State.Running != nil {
+					return pod.Name, false, nil
+				}
 			}
 		}
+		msg, definitive := podProblem(pod)
+		if definitive {
+			return "", true, fmt.Errorf("environment %s cannot start: %s", id, msg)
+		}
+		if msg != "" {
+			pending = msg
+		}
 	}
-	return "", fmt.Errorf("environment %s is not running", id)
+	if pending != "" {
+		return "", false, fmt.Errorf("environment %s is starting: %s", id, pending)
+	}
+	return "", false, fmt.Errorf("environment %s is not running yet", id)
+}
+
+// podProblem inspects a pod and returns a human-readable explanation plus
+// whether the condition is definitive (the pod will not recover on its own).
+func podProblem(pod *corev1.Pod) (string, bool) {
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodScheduled && cond.Status == corev1.ConditionFalse {
+			return fmt.Sprintf("pod %s is unschedulable: %s", pod.Name, strings.TrimSpace(cond.Message)), true
+		}
+	}
+	for _, status := range pod.Status.ContainerStatuses {
+		waiting := status.State.Waiting
+		if waiting == nil {
+			continue
+		}
+		reason := waiting.Reason
+		msg := strings.TrimSpace(waiting.Message)
+		switch reason {
+		case "FailedMount", "FailedAttachVolume", "FailedMapVolume":
+			return fmt.Sprintf("container %s cannot mount its volume (%s): %s", status.Name, reason, msg), false
+		case "CreateContainerConfigError", "CreateContainerError", "RunContainerError":
+			return fmt.Sprintf("container %s cannot start (%s): %s", status.Name, reason, msg), true
+		case "ErrImagePull", "ImagePullBackOff", "InvalidImageName", "ErrImageNeverPull":
+			return fmt.Sprintf("image for container %s cannot be pulled (%s): %s", status.Name, reason, msg), true
+		case "ContainerCreating", "PodInitializing":
+			return fmt.Sprintf("container %s is being created", status.Name), false
+		}
+	}
+	if pod.Status.Phase == corev1.PodPending {
+		return "pod is pending", false
+	}
+	return "", false
 }
 
 type terminalSizeAdapter struct {

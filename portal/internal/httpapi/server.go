@@ -315,7 +315,7 @@ func (s *Server) submitBuild(w http.ResponseWriter, r *http.Request) {
 	session, _ := auth.SessionFromContext(r.Context())
 	id, err := s.builds.Submit(r.Context(), req, sessionOwner(session))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeQuotaError(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]string{"id": id})
@@ -405,7 +405,7 @@ func (s *Server) submitContextBuild(w http.ResponseWriter, r *http.Request) {
 	id, err := s.builds.SubmitContext(r.Context(), req, sessionOwner(session), contextPath, syncToken)
 	if err != nil {
 		cleanup()
-		writeError(w, http.StatusBadRequest, err)
+		writeQuotaError(w, http.StatusBadRequest, err)
 		return
 	}
 	if syncToken != "" {
@@ -539,7 +539,7 @@ func (s *Server) activateEnv(w http.ResponseWriter, r *http.Request) {
 	s.sync.Ensure(id, token)
 	s.sync.Touch(id)
 	if err := s.builds.ActivateEnvironment(r.Context(), id); err != nil {
-		writeError(w, http.StatusBadGateway, err)
+		writeQuotaError(w, http.StatusBadGateway, err)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"id": id, "active": true})
@@ -922,4 +922,15 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, err error) {
 	writeJSON(w, status, map[string]string{"error": err.Error()})
+}
+
+// writeQuotaError maps build/environment quota failures to 429 so clients can
+// distinguish "too many parallel tasks" from a genuine bad request.
+func writeQuotaError(w http.ResponseWriter, fallback int, err error) {
+	var limitErr *builds.LimitError
+	if errors.As(err, &limitErr) {
+		writeError(w, http.StatusTooManyRequests, err)
+		return
+	}
+	writeError(w, fallback, err)
 }

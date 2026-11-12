@@ -516,3 +516,48 @@ func TestEnsureEnvironmentIDEAddsMissingSidecar(t *testing.T) {
 		t.Fatalf("expected 3 containers after enabling IDE, got %d", len(dep.Spec.Template.Spec.Containers))
 	}
 }
+
+func TestPodProblem(t *testing.T) {
+	mount := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "zeta-env-x"},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPending,
+			ContainerStatuses: []corev1.ContainerStatus{{
+				Name:  "env",
+				State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "FailedMount", Message: "mount failed"}},
+			}},
+		},
+	}
+	msg, definitive := podProblem(mount)
+	if msg == "" || definitive {
+		t.Fatalf("mount problem = %q definitive=%v, want message and non-definitive", msg, definitive)
+	}
+	if !strings.Contains(msg, "mount") {
+		t.Fatalf("mount problem message = %q", msg)
+	}
+
+	image := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "zeta-env-y"},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPending,
+			ContainerStatuses: []corev1.ContainerStatus{{
+				Name:  "env",
+				State: corev1.ContainerState{Waiting: &corev1.ContainerStateWaiting{Reason: "ImagePullBackOff", Message: "not found"}},
+			}},
+		},
+	}
+	if _, definitive := podProblem(image); !definitive {
+		t.Fatal("image pull failure should be definitive")
+	}
+
+	unsched := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "zeta-env-z"},
+		Status: corev1.PodStatus{
+			Phase:      corev1.PodPending,
+			Conditions: []corev1.PodCondition{{Type: corev1.PodScheduled, Status: corev1.ConditionFalse, Message: "no nodes"}},
+		},
+	}
+	if _, definitive := podProblem(unsched); !definitive {
+		t.Fatal("unschedulable pod should be definitive")
+	}
+}

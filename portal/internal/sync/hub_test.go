@@ -3,6 +3,8 @@ package sync
 import (
 	"testing"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 func TestHubActivity(t *testing.T) {
@@ -98,5 +100,28 @@ func TestPresenceAggregatesAndTracksShares(t *testing.T) {
 	release2()
 	if len(h.Presence("env")) != 0 {
 		t.Fatal("presence not cleared")
+	}
+}
+
+func TestHubRateLimiter(t *testing.T) {
+	h := NewHub(1024)
+	h.Ensure("env", "tok")
+	h.mu.Lock()
+	lim := h.sessions["env"].limiter
+	h.mu.Unlock()
+	if lim == nil {
+		t.Fatal("expected a per-session limiter")
+	}
+	if lim.Limit() != rate.Limit(1024) {
+		t.Fatalf("limit = %v, want 1024", lim.Limit())
+	}
+
+	unlimited := NewHub()
+	unlimited.Ensure("env", "tok")
+	unlimited.mu.Lock()
+	noLimiter := unlimited.sessions["env"].limiter
+	unlimited.mu.Unlock()
+	if noLimiter != nil {
+		t.Fatal("expected no limiter when bandwidth cap is disabled")
 	}
 }
