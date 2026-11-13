@@ -1707,6 +1707,12 @@ precedence.</p>
 <td>Maximum active environments per user (<code>0</code> disables)</td>
 </tr>
 <tr>
+<td><code>--max-total-envs-per-user</code></td>
+<td><code>ZETA_MAX_TOTAL_ENVS_PER_USER</code></td>
+<td><code>10</code></td>
+<td>Maximum total environments (and PVCs) per user (<code>0</code> disables)</td>
+</tr>
+<tr>
 <td><code>--sync-bytes-per-sec</code></td>
 <td><code>ZETA_SYNC_BYTES_PER_SEC</code></td>
 <td><code>8388608</code></td>
@@ -1899,6 +1905,10 @@ cluster or saturate the portal:</p>
   Exceeding it returns HTTP <code>429</code> with a clear message.</li>
 <li><code>--max-envs-per-user</code> caps simultaneously active environments per owner.
   Re-activating an environment that is already running is always allowed.</li>
+<li><code>--max-total-envs-per-user</code> caps all environments owned by a user, including
+  inactive ones. Each environment owns a workspace PVC, so this prevents one
+  user from accumulating idle volumes. Re-running <code>zeta init</code> on an existing
+  environment is always allowed; delete one with <code>zeta rm &lt;env&gt;</code> to free a slot.</li>
 <li><code>--sync-bytes-per-sec</code> caps the bandwidth of each sync session in both
   directions. File chunks are paced server-side by the sync hub, so a large
   repository mirror cannot consume the whole uplink.</li>

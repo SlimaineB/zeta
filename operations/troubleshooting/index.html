@@ -2263,10 +2263,15 @@ actionable reason instead of a generic "not running":</p>
 or free space; the workspace PVC is preserved on scale-down but a broken mount
 requires a new pod.</p>
 <h3 id="429-concurrent-build-limit-or-active-environment-limit"><code>429</code> / <code>concurrent build limit</code> or <code>active environment limit</code><a class="headerlink" href="#429-concurrent-build-limit-or-active-environment-limit" title="Permanent link">&para;</a></h3>
-<p>Zeta enforces fair-use quotas. A <code>429</code> means you reached
-<code>--max-builds-per-user</code> or <code>--max-envs-per-user</code>. Wait for a build to finish, or
-run <code>zeta deactivate --name &lt;env&gt;</code> before activating another environment. See
-<a href="../../reference/configuration/#fair-use-and-parallel-tasks">configuration</a>.</p>
+<p>Zeta enforces fair-use quotas. A <code>429</code> means you reached one of:</p>
+<ul>
+<li><code>--max-builds-per-user</code> — wait for a build to finish;</li>
+<li><code>--max-envs-per-user</code> — run <code>zeta deactivate --name &lt;env&gt;</code> before activating
+  another environment;</li>
+<li><code>--max-total-envs-per-user</code> — delete an environment with <code>zeta rm &lt;env&gt;</code>; each
+  environment owns a PVC, so this also caps idle volumes.</li>
+</ul>
+<p>See <a href="../../reference/configuration/#fair-use-and-parallel-tasks">configuration</a>.</p>
 <h3 id="shell-exits-immediately">Shell exits immediately<a class="headerlink" href="#shell-exits-immediately" title="Permanent link">&para;</a></h3>
 <p>The profile image must contain a shell (<code>sh</code> or <code>bash</code>). Check the <code>env</code>
 container logs and the image entrypoint.</p>

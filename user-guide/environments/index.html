@@ -1809,6 +1809,11 @@ sync client has been attached for <code>--env-idle-timeout</code>:</p>
 <p>The workspace PVC is mounted at <code>/workspace</code>; the cache is mounted at <code>/cache</code>.
 The volume is labeled <code>zeta.io/volume-role=env</code> and kept across
 <code>deactivate</code>/<code>activate</code>.</p>
+<p>Each environment owns one workspace PVC. The portal caps both active
+environments (<code>--max-envs-per-user</code>, default 2) and total environments per user
+(<code>--max-total-envs-per-user</code>, default 10). The total cap is what prevents a user
+from accumulating idle PVCs: re-running <code>zeta init</code> on an existing environment
+is always allowed, and <code>zeta rm &lt;env&gt;</code> frees a slot.</p>
 <h2 id="image-and-environment-overrides">Image and environment overrides<a class="headerlink" href="#image-and-environment-overrides" title="Permanent link">&para;</a></h2>
 <p><code>image</code> overrides the profile base image for this environment. <code>env</code> is merged
 with the profile environment; project values win by name.</p>
