@@ -21,6 +21,7 @@ precedence.
 | `--env-idle-timeout` | `ZETA_ENV_IDLE_TIMEOUT` | `15m` | Scale idle environments to zero (`0` disables) |
 | `--max-builds-per-user` | `ZETA_MAX_BUILDS_PER_USER` | `3` | Maximum concurrent builds per user (`0` disables) |
 | `--max-envs-per-user` | `ZETA_MAX_ENVS_PER_USER` | `2` | Maximum active environments per user (`0` disables) |
+| `--max-total-envs-per-user` | `ZETA_MAX_TOTAL_ENVS_PER_USER` | `10` | Maximum total environments (and PVCs) per user (`0` disables) |
 | `--sync-bytes-per-sec` | `ZETA_SYNC_BYTES_PER_SEC` | `8388608` | Per-session sync bandwidth cap in bytes/sec (`0` disables) |
 | `--oidc-issuer` | `ZETA_OIDC_ISSUER` | empty | OIDC issuer |
 | `--oidc-discovery-url` | `ZETA_OIDC_DISCOVERY_URL` | issuer | OIDC discovery URL |
@@ -120,6 +121,10 @@ cluster or saturate the portal:
   Exceeding it returns HTTP `429` with a clear message.
 - `--max-envs-per-user` caps simultaneously active environments per owner.
   Re-activating an environment that is already running is always allowed.
+- `--max-total-envs-per-user` caps all environments owned by a user, including
+  inactive ones. Each environment owns a workspace PVC, so this prevents one
+  user from accumulating idle volumes. Re-running `zeta init` on an existing
+  environment is always allowed; delete one with `zeta rm <env>` to free a slot.
 - `--sync-bytes-per-sec` caps the bandwidth of each sync session in both
   directions. File chunks are paced server-side by the sync hub, so a large
   repository mirror cannot consume the whole uplink.

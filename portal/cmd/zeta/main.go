@@ -43,8 +43,9 @@ func main() {
 		log.Printf("warning: PVCs not initialized: %v", err)
 	}
 	buildService := builds.NewService(repo, registry, builds.Limits{
-		MaxBuildsPerUser: cfg.MaxBuildsPerUser,
-		MaxEnvsPerUser:   cfg.MaxEnvsPerUser,
+		MaxBuildsPerUser:    cfg.MaxBuildsPerUser,
+		MaxEnvsPerUser:      cfg.MaxEnvsPerUser,
+		MaxTotalEnvsPerUser: cfg.MaxTotalEnvsPerUser,
 	})
 	api := httpapi.New(cfg, buildService, authService, synchub.NewHub(cfg.SyncBytesPerSec))
 	go api.RunIdleReaper(ctx, cfg.EnvIdleTimeout)

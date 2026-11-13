@@ -426,7 +426,7 @@ func (s *Server) createEnv(w http.ResponseWriter, r *http.Request) {
 	session, _ := auth.SessionFromContext(r.Context())
 	env, err := s.builds.CreateEnvironment(r.Context(), req, sessionOwner(session), synchub.NewToken())
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err)
+		writeQuotaError(w, http.StatusBadRequest, err)
 		return
 	}
 	writeJSON(w, http.StatusCreated, env)

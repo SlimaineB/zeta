@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -196,4 +197,27 @@ type BuildRepository interface {
 	EnsureEnvironmentIDE(ctx context.Context, id string) error
 	ForwardEnvironmentIDE(ctx context.Context, id string) (PortForward, error)
 	ForwardEnvironmentPort(ctx context.Context, id string, port int) (PortForward, error)
+}
+
+// NormalizeEnvID converts a user-provided environment name into a stable,
+// DNS-safe identifier. It is shared by the API and the Kubernetes layer so
+// quota checks and resource names always agree.
+func NormalizeEnvID(name string) string {
+	s := strings.ToLower(name)
+	var b strings.Builder
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			b.WriteRune(r)
+		} else {
+			b.WriteByte('-')
+		}
+	}
+	out := strings.Trim(b.String(), "-")
+	if out == "" {
+		out = "build"
+	}
+	if len(out) > 40 {
+		out = out[:40]
+	}
+	return out
 }

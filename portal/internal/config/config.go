@@ -11,22 +11,23 @@ import (
 )
 
 type Config struct {
-	Addr             string
-	Namespace        string
-	KubeConfig       string
-	MasterURL        string
-	ProfilesFile     string
-	ImageRegistry    string
-	ImageTag         string
-	IDEImage         string
-	StorageClass     string
-	VolumeQuotaBytes int64
-	VolumeMaxBytes   int64
-	EnvIdleTimeout   time.Duration
-	MaxBuildsPerUser int
-	MaxEnvsPerUser   int
-	SyncBytesPerSec  int64
-	Auth             AuthConfig
+	Addr                string
+	Namespace           string
+	KubeConfig          string
+	MasterURL           string
+	ProfilesFile        string
+	ImageRegistry       string
+	ImageTag            string
+	IDEImage            string
+	StorageClass        string
+	VolumeQuotaBytes    int64
+	VolumeMaxBytes      int64
+	EnvIdleTimeout      time.Duration
+	MaxBuildsPerUser    int
+	MaxEnvsPerUser      int
+	MaxTotalEnvsPerUser int
+	SyncBytesPerSec     int64
+	Auth                AuthConfig
 }
 
 type AuthConfig struct {
@@ -84,6 +85,7 @@ func Load(args []string) (Config, error) {
 	envIdle := env("ZETA_ENV_IDLE_TIMEOUT", "15m")
 	maxBuilds := env("ZETA_MAX_BUILDS_PER_USER", "3")
 	maxEnvs := env("ZETA_MAX_ENVS_PER_USER", "2")
+	maxTotalEnvs := env("ZETA_MAX_TOTAL_ENVS_PER_USER", "10")
 	syncRate := env("ZETA_SYNC_BYTES_PER_SEC", "8388608")
 
 	fs := flag.NewFlagSet("zeta", flag.ContinueOnError)
@@ -101,6 +103,7 @@ func Load(args []string) (Config, error) {
 	fs.StringVar(&envIdle, "env-idle-timeout", envIdle, "scale environments to zero after this idle duration (0 disables)")
 	fs.StringVar(&maxBuilds, "max-builds-per-user", maxBuilds, "maximum concurrent builds per user (0 disables)")
 	fs.StringVar(&maxEnvs, "max-envs-per-user", maxEnvs, "maximum active environments per user (0 disables)")
+	fs.StringVar(&maxTotalEnvs, "max-total-envs-per-user", maxTotalEnvs, "maximum total environments (and PVCs) per user (0 disables)")
 	fs.StringVar(&syncRate, "sync-bytes-per-sec", syncRate, "per-session sync bandwidth cap in bytes/sec (0 disables)")
 	fs.StringVar(&cfg.Auth.OIDCIssuer, "oidc-issuer", cfg.Auth.OIDCIssuer, "OIDC issuer")
 	fs.StringVar(&cfg.Auth.OIDCDiscoveryURL, "oidc-discovery-url", cfg.Auth.OIDCDiscoveryURL, "OIDC discovery URL (default: issuer)")
@@ -147,6 +150,9 @@ func Load(args []string) (Config, error) {
 		return Config{}, err
 	}
 	if cfg.MaxEnvsPerUser, err = nonNegativeInt("--max-envs-per-user", maxEnvs); err != nil {
+		return Config{}, err
+	}
+	if cfg.MaxTotalEnvsPerUser, err = nonNegativeInt("--max-total-envs-per-user", maxTotalEnvs); err != nil {
 		return Config{}, err
 	}
 	rate, err := strconv.ParseInt(syncRate, 10, 64)

@@ -163,3 +163,29 @@ func TestPerUserEnvLimit(t *testing.T) {
 		t.Fatalf("limit with room should allow: %v", err)
 	}
 }
+
+func TestPerUserTotalEnvLimit(t *testing.T) {
+	repo := &fakeRepo{envs: []domain.Environment{
+		{ID: "one", Owner: "alice@example.com"},
+		{ID: "two", Owner: "alice@example.com"},
+		{ID: "other", Owner: "bob@example.com"},
+	}}
+	reg, err := LoadProfiles("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := NewService(repo, reg, Limits{MaxTotalEnvsPerUser: 2})
+	if _, err := svc.CreateEnvironment(context.Background(), domain.EnvRequest{Name: "three", Profile: "go"}, "alice@example.com", ""); err == nil {
+		t.Fatal("expected total environment limit error")
+	}
+	if _, err := svc.CreateEnvironment(context.Background(), domain.EnvRequest{Name: "one", Profile: "go"}, "alice@example.com", ""); err != nil {
+		t.Fatalf("re-initializing an existing environment should be allowed: %v", err)
+	}
+	if _, err := svc.CreateEnvironment(context.Background(), domain.EnvRequest{Name: "three", Profile: "go"}, "bob@example.com", ""); err != nil {
+		t.Fatalf("other user should have room: %v", err)
+	}
+	unlimited := NewService(repo, reg, Limits{MaxTotalEnvsPerUser: 0})
+	if _, err := unlimited.CreateEnvironment(context.Background(), domain.EnvRequest{Name: "three", Profile: "go"}, "alice@example.com", ""); err != nil {
+		t.Fatalf("disabled limit should allow: %v", err)
+	}
+}

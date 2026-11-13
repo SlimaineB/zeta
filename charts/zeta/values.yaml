@@ -21,6 +21,7 @@ portal:
   envIdleTimeout: 15m
   maxBuildsPerUser: 3
   maxEnvsPerUser: 2
+  maxTotalEnvsPerUser: 10
   syncBytesPerSec: 8388608
   podAnnotations: {}
   resources:

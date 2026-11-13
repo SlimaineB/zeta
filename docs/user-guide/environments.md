@@ -181,6 +181,12 @@ The workspace PVC is mounted at `/workspace`; the cache is mounted at `/cache`.
 The volume is labeled `zeta.io/volume-role=env` and kept across
 `deactivate`/`activate`.
 
+Each environment owns one workspace PVC. The portal caps both active
+environments (`--max-envs-per-user`, default 2) and total environments per user
+(`--max-total-envs-per-user`, default 10). The total cap is what prevents a user
+from accumulating idle PVCs: re-running `zeta init` on an existing environment
+is always allowed, and `zeta rm <env>` frees a slot.
+
 ## Image and environment overrides
 
 `image` overrides the profile base image for this environment. `env` is merged

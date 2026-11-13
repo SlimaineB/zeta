@@ -39,6 +39,7 @@ spec:
             - -env-idle-timeout={{ .Values.portal.envIdleTimeout }}
             - -max-builds-per-user={{ .Values.portal.maxBuildsPerUser | int }}
             - -max-envs-per-user={{ .Values.portal.maxEnvsPerUser | int }}
+            - -max-total-envs-per-user={{ .Values.portal.maxTotalEnvsPerUser | int }}
             - -sync-bytes-per-sec={{ .Values.portal.syncBytesPerSec | int64 }}
             {{- if .Values.image.registry }}
             - -image-registry={{ .Values.image.registry }}

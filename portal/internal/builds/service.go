@@ -16,8 +16,9 @@ import (
 var commitPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$`)
 
 type Limits struct {
-	MaxBuildsPerUser int
-	MaxEnvsPerUser   int
+	MaxBuildsPerUser    int
+	MaxEnvsPerUser      int
+	MaxTotalEnvsPerUser int
 }
 
 // LimitError reports that a profile or per-user quota was exceeded.
@@ -32,6 +33,7 @@ type Service struct {
 	registry *Registry
 	limits   Limits
 	mu       sync.Mutex
+	quotaMu  sync.Mutex
 }
 
 func NewService(repo domain.BuildRepository, registry *Registry, limits ...Limits) *Service {
@@ -244,6 +246,11 @@ func (s *Service) CreateEnvironment(ctx context.Context, req domain.EnvRequest, 
 	if !ok {
 		return domain.Environment{}, fmt.Errorf("unknown profile: %s", req.Profile)
 	}
+	s.quotaMu.Lock()
+	defer s.quotaMu.Unlock()
+	if err := s.ensureUserTotalEnvCapacity(ctx, owner, domain.NormalizeEnvID(req.Name)); err != nil {
+		return domain.Environment{}, err
+	}
 	return s.repo.EnsureEnvironment(ctx, domain.EnvSpec{
 		ID:      req.Name,
 		Profile: profile,
@@ -260,10 +267,43 @@ func (s *Service) Environments(ctx context.Context) ([]domain.Environment, error
 }
 
 func (s *Service) ActivateEnvironment(ctx context.Context, id string) error {
+	s.quotaMu.Lock()
+	defer s.quotaMu.Unlock()
 	if err := s.ensureUserEnvCapacity(ctx, id); err != nil {
 		return err
 	}
 	return s.repo.SetEnvironmentActive(ctx, id, true)
+}
+
+// ensureUserTotalEnvCapacity caps the number of environments a user can own,
+// including inactive ones. Each environment owns a PVC, so this prevents a
+// single user from accumulating hundreds of idle volumes.
+func (s *Service) ensureUserTotalEnvCapacity(ctx context.Context, owner, id string) error {
+	limit := s.limits.MaxTotalEnvsPerUser
+	if limit <= 0 {
+		return nil
+	}
+	owner = strings.TrimSpace(owner)
+	if owner == "" {
+		return nil
+	}
+	envs, err := s.repo.ListEnvironments(ctx)
+	if err != nil {
+		return err
+	}
+	total := 0
+	for _, env := range envs {
+		if strings.EqualFold(env.ID, id) {
+			return nil
+		}
+		if strings.EqualFold(strings.TrimSpace(env.Owner), owner) {
+			total++
+		}
+	}
+	if total >= limit {
+		return &LimitError{Message: fmt.Sprintf("you already have %d environment(s) (limit %d); run `zeta rm <env>` to delete one", total, limit)}
+	}
+	return nil
 }
 
 func (s *Service) ensureUserEnvCapacity(ctx context.Context, id string) error {

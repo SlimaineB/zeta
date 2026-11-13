@@ -193,10 +193,15 @@ requires a new pod.
 
 ### `429` / `concurrent build limit` or `active environment limit`
 
-Zeta enforces fair-use quotas. A `429` means you reached
-`--max-builds-per-user` or `--max-envs-per-user`. Wait for a build to finish, or
-run `zeta deactivate --name <env>` before activating another environment. See
-[configuration](../reference/configuration.md#fair-use-and-parallel-tasks).
+Zeta enforces fair-use quotas. A `429` means you reached one of:
+
+- `--max-builds-per-user` — wait for a build to finish;
+- `--max-envs-per-user` — run `zeta deactivate --name <env>` before activating
+  another environment;
+- `--max-total-envs-per-user` — delete an environment with `zeta rm <env>`; each
+  environment owns a PVC, so this also caps idle volumes.
+
+See [configuration](../reference/configuration.md#fair-use-and-parallel-tasks).
 
 ### Shell exits immediately
 

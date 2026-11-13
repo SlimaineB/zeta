@@ -1753,25 +1753,7 @@ func jobName(profile string) string {
 	return fmt.Sprintf("zeta-%s-%x", slug(profile), b)
 }
 
-func slug(s string) string {
-	s = strings.ToLower(s)
-	var b strings.Builder
-	for _, r := range s {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-			b.WriteRune(r)
-		} else {
-			b.WriteByte('-')
-		}
-	}
-	out := strings.Trim(b.String(), "-")
-	if out == "" {
-		out = "build"
-	}
-	if len(out) > 40 {
-		out = out[:40]
-	}
-	return out
-}
+func slug(s string) string { return domain.NormalizeEnvID(s) }
 
 func lockedContext() *corev1.SecurityContext {
 	return &corev1.SecurityContext{
