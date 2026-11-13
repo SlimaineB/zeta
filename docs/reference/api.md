@@ -90,6 +90,7 @@ Errors use a JSON body:
 | `POST` | `/api/envs/{id}/deactivate` | Stop an environment |
 | `DELETE` | `/api/envs/{id}` | Delete an environment and its volume |
 | `GET` | `/api/envs/{id}/exec` | Interactive exec WebSocket |
+| `GET` | `/api/envs/{id}/portforward` | TCP port-forward WebSocket |
 | `POST` | `/api/envs/{id}/ide` | Enable the IDE sidecar and return the browser URL |
 | `GET` | `/api/envs/{id}/ide/` | Authenticated HTTP/WebSocket reverse proxy to code-server |
 | `POST` | `/api/envs/{id}/shares` | Create a temporary full-access share link |
@@ -340,10 +341,36 @@ Returns `204 No Content`. Deletes the Deployment, pods, sync Secret, and PVC.
 | First byte | Payload |
 |---|---|
 | `i` | Raw stdin bytes |
+| `c` | Close stdin (client to server) |
 | `r` | JSON resize `{"cols":120,"rows":30}` |
 | `o` | Raw stdout/stderr bytes (server to client) |
+| `e` | JSON exit `{"code":0,"error":"..."}` (server to client) |
 
-The exec runs in the `env` container, in `/workspace`, with a TTY.
+Query parameters:
+
+| Parameter | Meaning |
+|---|---|
+| `cmd` | Command argument (repeatable). Omitted means an interactive shell. |
+| `tty=1` | Allocate a pseudo-TTY. |
+| `stdin=0` | Do not attach stdin (the remote command sees EOF immediately). |
+
+The exec runs in the `env` container from `/workspace`. A provided command is
+wrapped as `sh -c 'cd /workspace; exec "$@"'` so argument boundaries are
+preserved. The final `e` frame carries the exit code.
+
+### Port forward
+
+`GET /api/envs/{id}/portforward?port=8080` upgrades to a WebSocket tunnel. The
+portal port-forwards the requested TCP port from the environment pod and sends
+one control frame first:
+
+| First byte | Payload |
+|---|---|
+| `o` | Ready; raw bytes follow in both directions |
+| `e` | JSON error `{"error":"..."}` and the connection closes |
+
+After the ready frame, each WebSocket message carries raw TCP bytes. The CLI
+opens one tunnel per accepted local connection.
 
 ## Sync WebSockets
 

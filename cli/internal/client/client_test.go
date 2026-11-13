@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -58,5 +59,44 @@ func TestSubmitParsesID(t *testing.T) {
 	}
 	if id != "zeta-cpp-123" {
 		t.Fatalf("id = %q", id)
+	}
+}
+
+func TestEnvExecURL(t *testing.T) {
+	c := &Client{BaseURL: "http://zeta.local"}
+	raw, err := c.EnvExecURL("demo", []string{"go", "test", "./..."}, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "ws://zeta.local/api/envs/demo/exec"; !strings.HasPrefix(raw, want) {
+		t.Fatalf("url = %q, want prefix %q", raw, want)
+	}
+	if !strings.Contains(raw, "cmd=go") || !strings.Contains(raw, "cmd=test") || !strings.Contains(raw, "cmd=.%2F...") {
+		t.Fatalf("missing command args: %q", raw)
+	}
+	if !strings.Contains(raw, "stdin=0") {
+		t.Fatalf("missing stdin=0: %q", raw)
+	}
+	if strings.Contains(raw, "tty=1") {
+		t.Fatalf("unexpected tty: %q", raw)
+	}
+
+	raw, err = c.EnvExecURL("demo", nil, true, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(raw, "tty=1") || strings.Contains(raw, "stdin=0") {
+		t.Fatalf("interactive url = %q", raw)
+	}
+}
+
+func TestEnvPortForwardURL(t *testing.T) {
+	c := &Client{BaseURL: "https://zeta.example"}
+	raw, err := c.EnvPortForwardURL("demo", 8080)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if raw != "wss://zeta.example/api/envs/demo/portforward?port=8080" {
+		t.Fatalf("url = %q", raw)
 	}
 }

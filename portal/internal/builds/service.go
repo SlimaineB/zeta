@@ -329,6 +329,10 @@ func (s *Service) ForwardEnvironmentIDE(ctx context.Context, id string) (domain.
 	return s.repo.ForwardEnvironmentIDE(ctx, id)
 }
 
+func (s *Service) ForwardEnvironmentPort(ctx context.Context, id string, port int) (domain.PortForward, error) {
+	return s.repo.ForwardEnvironmentPort(ctx, id, port)
+}
+
 func ParseMetrics(log string) domain.CacheStats {
 	stats := domain.CacheStats{Extra: map[string]string{}}
 	for _, line := range strings.Split(log, "\n") {

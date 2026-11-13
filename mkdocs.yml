@@ -75,6 +75,7 @@ nav:
       - Install the CLI: developer/installation.md
       - First build: getting-started/quickstart.md
       - CLI: user-guide/cli.md
+      - Coming from Docker or kubectl: user-guide/docker-users.md
       - Builds: user-guide/builds.md
       - Persistent environments: user-guide/environments.md
       - Profiles: user-guide/profiles.md

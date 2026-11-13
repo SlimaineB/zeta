@@ -104,6 +104,10 @@ func (f *fakeRepo) ForwardEnvironmentIDE(context.Context, string) (domain.PortFo
 	return domain.PortForward{}, nil
 }
 
+func (f *fakeRepo) ForwardEnvironmentPort(context.Context, string, int) (domain.PortForward, error) {
+	return domain.PortForward{}, nil
+}
+
 func TestEnsureCapacityDefault(t *testing.T) {
 	repo := &fakeRepo{builds: []domain.Build{{Profile: "go", Status: domain.StatusRunning}}}
 	svc := NewService(repo, nil)

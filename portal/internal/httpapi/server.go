@@ -11,12 +11,14 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"golang.org/x/net/websocket"
 	apierrs "k8s.io/apimachinery/pkg/api/errors"
+	kexec "k8s.io/client-go/util/exec"
 
 	"zeta/portal/internal/auth"
 	"zeta/portal/internal/builds"
@@ -84,6 +86,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/envs/{id}/deactivate", protected(s.deactivateEnv))
 	mux.Handle("DELETE /api/envs/{id}", protected(s.deleteEnv))
 	mux.Handle("GET /api/envs/{id}/exec", shared(s.envExec))
+	mux.Handle("GET /api/envs/{id}/portforward", shared(s.envPortForward))
 	mux.Handle("POST /api/envs/{id}/ide", shared(s.enableEnvIDE))
 	mux.Handle("GET /api/envs/{id}/ide", shared(s.redirectEnvIDE))
 	mux.Handle("GET /api/envs/{id}/ide/", shared(s.envIDE))
@@ -582,6 +585,18 @@ func (s *Server) envExec(w http.ResponseWriter, r *http.Request) {
 	if !s.authorizeEnv(w, r, id) {
 		return
 	}
+	query := r.URL.Query()
+	command := query["cmd"]
+	tty := query.Get("tty") == "1" || query.Get("tty") == "true"
+	if len(command) == 0 {
+		command = []string{"sh", "-c", "cd /workspace && (command -v bash >/dev/null && exec bash -i || exec sh -i)"}
+		tty = true
+	} else {
+		// Run from /workspace like `docker exec` uses the container workdir,
+		// while preserving argument boundaries.
+		command = append([]string{"sh", "-c", `cd /workspace 2>/dev/null || true; exec "$@"`, "sh"}, command...)
+	}
+	useStdin := query.Get("stdin") != "0"
 	identity := s.requestIdentity(r)
 	serveWebSocket(w, r, func(ws *websocket.Conn) {
 		defer ws.Close()
@@ -591,7 +606,20 @@ func (s *Server) envExec(w http.ResponseWriter, r *http.Request) {
 		defer unregister()
 		ctx, cancel := context.WithCancel(r.Context())
 		defer cancel()
-		stdin, stdinWriter := io.Pipe()
+		var stdin io.Reader
+		var stdinWriter *io.PipeWriter
+		if useStdin {
+			pr, pw := io.Pipe()
+			stdin, stdinWriter = pr, pw
+		}
+		var stdinOnce sync.Once
+		closeStdin := func() {
+			stdinOnce.Do(func() {
+				if stdinWriter != nil {
+					_ = stdinWriter.Close()
+				}
+			})
+		}
 		output := &execOutput{ws: ws}
 		sizes := newExecSizeQueue()
 		defer sizes.close()
@@ -599,7 +627,7 @@ func (s *Server) envExec(w http.ResponseWriter, r *http.Request) {
 			for {
 				var msg []byte
 				if err := websocket.Message.Receive(ws, &msg); err != nil {
-					_ = stdinWriter.CloseWithError(err)
+					closeStdin()
 					cancel()
 					return
 				}
@@ -608,10 +636,15 @@ func (s *Server) envExec(w http.ResponseWriter, r *http.Request) {
 				}
 				switch msg[0] {
 				case 'i':
+					if stdinWriter == nil {
+						continue
+					}
 					if _, err := stdinWriter.Write(msg[1:]); err != nil {
 						cancel()
 						return
 					}
+				case 'c':
+					closeStdin()
 				case 'r':
 					var size struct {
 						Cols uint16 `json:"cols"`
@@ -623,19 +656,122 @@ func (s *Server) envExec(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}()
-		err := s.builds.ExecEnvironment(ctx, id, domain.ExecOptions{
+		opts := domain.ExecOptions{
 			Container: "env",
-			Command:   []string{"sh", "-c", "cd /workspace && (command -v bash >/dev/null && exec bash -i || exec sh -i)"},
+			Command:   command,
 			Stdin:     stdin,
 			Stdout:    output,
-			TTY:       true,
-			SizeQueue: sizes,
-		})
-		_ = stdinWriter.Close()
-		if err != nil && ctx.Err() == nil {
-			_, _ = output.Write([]byte("\r\n[zeta] " + err.Error() + "\r\n"))
+			TTY:       tty,
 		}
+		if tty {
+			opts.SizeQueue = sizes
+		} else {
+			opts.Stderr = output
+		}
+		err := s.builds.ExecEnvironment(ctx, id, opts)
+		closeStdin()
+		code, message := 0, ""
+		if ctx.Err() == nil {
+			code, message = execExitCode(err)
+		}
+		_ = sendExecExit(ws, code, message)
 	}, true)
+}
+
+func execExitCode(err error) (int, string) {
+	if err == nil {
+		return 0, ""
+	}
+	var exitErr kexec.ExitError
+	if errors.As(err, &exitErr) {
+		return exitErr.ExitStatus(), ""
+	}
+	return 1, err.Error()
+}
+
+func sendExecExit(ws *websocket.Conn, code int, message string) error {
+	payload, _ := json.Marshal(struct {
+		Code  int    `json:"code"`
+		Error string `json:"error,omitempty"`
+	}{Code: code, Error: message})
+	return websocket.Message.Send(ws, append([]byte{'e'}, payload...))
+}
+
+func (s *Server) envPortForward(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !s.authorizeEnv(w, r, id) {
+		return
+	}
+	port, err := strconv.Atoi(r.URL.Query().Get("port"))
+	if err != nil || port < 1 || port > 65535 {
+		writeError(w, http.StatusBadRequest, fmt.Errorf("invalid port"))
+		return
+	}
+	serveWebSocket(w, r, func(ws *websocket.Conn) {
+		defer ws.Close()
+		ctx, cancel := context.WithCancel(r.Context())
+		defer cancel()
+		pf, err := s.builds.ForwardEnvironmentPort(ctx, id, port)
+		if err != nil {
+			_ = sendTunnelControl(ws, 'e', err.Error())
+			return
+		}
+		defer pf.Close()
+		conn, err := net.Dial("tcp", pf.Address)
+		if err != nil {
+			_ = sendTunnelControl(ws, 'e', err.Error())
+			return
+		}
+		defer conn.Close()
+		if err := sendTunnelControl(ws, 'o', ""); err != nil {
+			return
+		}
+		errs := make(chan error, 2)
+		go func() { errs <- tunnelFromWS(ws, conn) }()
+		go func() { errs <- tunnelToWS(ws, conn) }()
+		<-errs
+		cancel()
+		_ = conn.Close()
+	}, true)
+}
+
+func sendTunnelControl(ws *websocket.Conn, kind byte, message string) error {
+	frame := []byte{kind}
+	if message != "" {
+		payload, _ := json.Marshal(map[string]string{"error": message})
+		frame = append(frame, payload...)
+	}
+	return websocket.Message.Send(ws, frame)
+}
+
+func tunnelFromWS(ws *websocket.Conn, conn net.Conn) error {
+	for {
+		var data []byte
+		if err := websocket.Message.Receive(ws, &data); err != nil {
+			return err
+		}
+		if len(data) == 0 {
+			continue
+		}
+		if _, err := conn.Write(data); err != nil {
+			return err
+		}
+	}
+}
+
+func tunnelToWS(ws *websocket.Conn, conn net.Conn) error {
+	buf := make([]byte, 32*1024)
+	for {
+		n, err := conn.Read(buf)
+		if n > 0 {
+			if sendErr := websocket.Message.Send(ws, buf[:n]); sendErr != nil {
+				return sendErr
+			}
+		}
+		if err != nil {
+			return err
+		}
+	}
 }
 
 type execOutput struct {

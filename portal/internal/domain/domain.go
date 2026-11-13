@@ -195,4 +195,5 @@ type BuildRepository interface {
 	ExecEnvironment(ctx context.Context, id string, opts ExecOptions) error
 	EnsureEnvironmentIDE(ctx context.Context, id string) error
 	ForwardEnvironmentIDE(ctx context.Context, id string) (PortForward, error)
+	ForwardEnvironmentPort(ctx context.Context, id string, port int) (PortForward, error)
 }

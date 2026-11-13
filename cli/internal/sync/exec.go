@@ -3,6 +3,7 @@ package sync
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 
@@ -94,4 +95,61 @@ func RunShell(ctx context.Context, conn *WSConn, in, out *os.File) error {
 			return err
 		}
 	}
+}
+
+// RunExec runs a non-interactive command, forwarding optional stdin and
+// streaming stdout/stderr. It returns the remote exit code.
+func RunExec(ctx context.Context, conn *WSConn, in io.Reader, out io.Writer) (int, error) {
+	if in != nil {
+		go func() {
+			buf := make([]byte, 4096)
+			for {
+				n, err := in.Read(buf)
+				if n > 0 {
+					frame := make([]byte, n+1)
+					frame[0] = 'i'
+					copy(frame[1:], buf[:n])
+					if conn.SendBytes(frame) != nil {
+						return
+					}
+				}
+				if err != nil {
+					_ = conn.SendBytes([]byte{'c'})
+					return
+				}
+			}
+		}()
+	}
+	code := 0
+	var runErr error
+	for {
+		var frame []byte
+		if err := conn.ReceiveBytes(&frame); err != nil {
+			if err == io.EOF || ctx.Err() != nil {
+				break
+			}
+			return code, err
+		}
+		if len(frame) == 0 {
+			continue
+		}
+		switch frame[0] {
+		case 'o':
+			if _, err := out.Write(frame[1:]); err != nil {
+				return code, err
+			}
+		case 'e':
+			var exit struct {
+				Code  int    `json:"code"`
+				Error string `json:"error"`
+			}
+			if json.Unmarshal(frame[1:], &exit) == nil {
+				code = exit.Code
+				if exit.Error != "" {
+					runErr = errors.New(exit.Error)
+				}
+			}
+		}
+	}
+	return code, runErr
 }

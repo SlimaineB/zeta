@@ -43,4 +43,8 @@ spec:
       ports:
         - protocol: TCP
           port: 443
+        # k3s DNATs the kubernetes Service (10.43.0.1:443) to the node's
+        # 6443, so exec and port-forward need this port as well.
+        - protocol: TCP
+          port: 6443
 {{- end -}}

@@ -97,3 +97,33 @@ func TestExtractTarExcludesArtifacts(t *testing.T) {
 		}
 	}
 }
+
+func TestParsePortSpec(t *testing.T) {
+	cases := []struct {
+		spec          string
+		local, remote int
+		ok            bool
+	}{
+		{"8080", 8080, 8080, true},
+		{"3000:80", 3000, 80, true},
+		{"0:80", 0, 0, false},
+		{"70000:80", 0, 0, false},
+		{"a:80", 0, 0, false},
+		{"1:2:3", 0, 0, false},
+	}
+	for _, tc := range cases {
+		local, remote, err := parsePortSpec(tc.spec)
+		if tc.ok {
+			if err != nil {
+				t.Fatalf("parsePortSpec(%q): %v", tc.spec, err)
+			}
+			if local != tc.local || remote != tc.remote {
+				t.Fatalf("parsePortSpec(%q) = %d,%d", tc.spec, local, remote)
+			}
+			continue
+		}
+		if err == nil {
+			t.Fatalf("parsePortSpec(%q) expected error", tc.spec)
+		}
+	}
+}

@@ -1298,6 +1298,17 @@ func (r *Repository) ForwardEnvironmentIDE(ctx context.Context, id string) (doma
 	return r.forwardPodPort(ctx, pod, idePort)
 }
 
+// ForwardEnvironmentPort opens a local listener that tunnels to an arbitrary
+// port inside the environment pod. It waits briefly for a starting pod but
+// surfaces definitive failures (unschedulable, image pull, bad config) early.
+func (r *Repository) ForwardEnvironmentPort(ctx context.Context, id string, port int) (domain.PortForward, error) {
+	pod, err := r.waitEnvPod(ctx, id)
+	if err != nil {
+		return domain.PortForward{}, err
+	}
+	return r.forwardPodPort(ctx, pod, port)
+}
+
 func (r *Repository) waitIDEPod(ctx context.Context, id string) (string, error) {
 	deadline := time.Now().Add(3 * time.Minute)
 	for {

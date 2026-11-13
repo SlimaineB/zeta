@@ -1,10 +1,13 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	kexec "k8s.io/client-go/util/exec"
 
 	"zeta/portal/internal/auth"
 	"zeta/portal/internal/domain"
@@ -150,5 +153,18 @@ func TestRewriteIDELocation(t *testing.T) {
 		if got := rewriteIDELocation("/api/envs/demo/ide", in); got != want {
 			t.Errorf("rewriteIDELocation(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestExecExitCode(t *testing.T) {
+	if code, message := execExitCode(nil); code != 0 || message != "" {
+		t.Fatalf("nil error = %d, %q", code, message)
+	}
+	exitErr := kexec.CodeExitError{Code: 7, Err: errors.New("command terminated with exit code 7")}
+	if code, message := execExitCode(exitErr); code != 7 || message != "" {
+		t.Fatalf("exit error = %d, %q", code, message)
+	}
+	if code, message := execExitCode(errors.New("boom")); code != 1 || message != "boom" {
+		t.Fatalf("generic error = %d, %q", code, message)
 	}
 }

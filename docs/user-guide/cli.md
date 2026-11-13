@@ -32,6 +32,8 @@ The session is stored in `~/.config/zeta/config.json` with mode `0600`.
 | `zeta volumes delete NAME` | Delete an idle volume |
 | `zeta init` | Provision a persistent environment |
 | `zeta activate` | Start it, open a shell, and sync files |
+| `zeta exec` | Run a command or interactive shell in an environment |
+| `zeta port-forward` | Expose an environment port on localhost |
 | `zeta deactivate` | Scale it to zero |
 | `zeta ls` | List environments |
 | `zeta rm` | Delete an environment and its volume |
@@ -207,6 +209,8 @@ zeta rm
 |---|---|
 | `zeta init` | `--name`, `--profile`, `--context`, `--size` |
 | `zeta activate` | `--name`, `--context`, `--exclude` (repeatable) |
+| `zeta exec` | `--name`, `--context`, `-i`, `-t`, `-it`, `-- COMMAND...` |
+| `zeta port-forward` | `--name`, `--context`, `-p [LOCAL:]REMOTE` (repeatable), `--address` |
 | `zeta code` | `--name`, `--context`, `--print` |
 | `zeta share` | `--name`, `--context`, `--ttl`, `--label` |
 | `zeta share list` | `--name`, `--context`, `--json` |
@@ -234,6 +238,42 @@ guests; `zeta share revoke SHARE_ID` invalidates a link immediately.
 
 See [Persistent environments](environments.md) and
 [`zeta.yaml` reference](../reference/zeta-yaml.md).
+
+## Run commands and forward ports
+
+`zeta exec` runs a command inside an environment without opening the full
+mirrored shell. It starts the environment first if needed and returns the
+command's exit code.
+
+```bash
+zeta exec -- go test ./...
+zeta exec -it                       # interactive shell
+zeta exec -it -- bash -l            # explicit shell
+```
+
+| Flag | Meaning |
+|---|---|
+| `-i` | Keep stdin attached |
+| `-t` | Allocate a pseudo-TTY |
+| `-it` | Both (Docker-style shorthand) |
+
+Without a command, `zeta exec` opens an interactive shell. Commands run from
+`/workspace`.
+
+`zeta port-forward` tunnels a TCP port from the environment to your machine:
+
+```bash
+zeta port-forward -p 8080:80
+zeta port-forward -p 3000 -p 5432:5432 --address 0.0.0.0
+```
+
+`[LOCAL:]REMOTE` follows the Docker convention; `REMOTE` alone binds the same
+port locally. The default bind address is `127.0.0.1`; pass `--address 0.0.0.0`
+to expose it on your LAN. Each accepted local connection opens a fresh tunnel to
+the environment pod, so HTTP keep-alive and WebSocket clients both work.
+
+See [Coming from Docker or kubectl](docker-users.md) for a side-by-side cheat
+sheet.
 
 ## Exit codes
 

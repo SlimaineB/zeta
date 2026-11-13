@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -347,8 +348,42 @@ func (c *Client) DeleteEnv(ctx context.Context, id string) error {
 	return res.Body.Close()
 }
 
-func (c *Client) EnvExecURL(id string) (string, error) {
-	return c.wsURL("/api/envs/" + url.PathEscape(id) + "/exec")
+func (c *Client) EnvExecURL(id string, command []string, tty, stdin bool) (string, error) {
+	raw, err := c.wsURL("/api/envs/" + url.PathEscape(id) + "/exec")
+	if err != nil {
+		return "", err
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	q := u.Query()
+	for _, arg := range command {
+		q.Add("cmd", arg)
+	}
+	if tty {
+		q.Set("tty", "1")
+	}
+	if !stdin {
+		q.Set("stdin", "0")
+	}
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
+func (c *Client) EnvPortForwardURL(id string, port int) (string, error) {
+	raw, err := c.wsURL("/api/envs/" + url.PathEscape(id) + "/portforward")
+	if err != nil {
+		return "", err
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	q := u.Query()
+	q.Set("port", strconv.Itoa(port))
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }
 
 func (c *Client) CreateShare(ctx context.Context, id, ttl, label string) (Share, error) {

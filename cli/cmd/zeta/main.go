@@ -9,9 +9,11 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
@@ -58,6 +60,10 @@ func main() {
 		cmdEnvActivate(os.Args[2:])
 	case "code":
 		cmdEnvCode(os.Args[2:])
+	case "exec":
+		cmdExec(os.Args[2:])
+	case "port-forward", "forward", "pf":
+		cmdForward(os.Args[2:])
 	case "share":
 		cmdShare(os.Args[2:])
 	case "deactivate", "down":
@@ -95,6 +101,8 @@ Usage:
   zeta volumes delete NAME
   zeta init [--name NAME] [--profile P] [--context DIR] [--size SIZE]
   zeta activate [--name NAME] [--context DIR] [--exclude PATTERN]
+  zeta exec [--name NAME] [-i] [-t] [-it] [--] COMMAND...
+  zeta port-forward [--name NAME] [-p [LOCAL:]REMOTE]... [--address IP]
   zeta code [--name NAME] [--context DIR] [--print]
   zeta board [--print]
   zeta share [--name NAME] [--context DIR] [--ttl 1h] [--label NAME]
@@ -124,6 +132,9 @@ Examples:
   zeta volumes --older-than 720h
   zeta init --profile go          # provision a persistent environment
   zeta activate                   # ssh-like shell + real-time file mirror
+  zeta exec -it                   # interactive shell (like docker exec -it)
+  zeta exec -- go test ./...      # run one command, returns its exit code
+  zeta port-forward -p 8080:80    # expose an environment port locally
   zeta code                       # open VS Code in the browser on /workspace
   zeta share --ttl 1h --label Alice  # temporary full-access workspace link
   zeta deactivate                 # stop the environment pod
@@ -561,6 +572,10 @@ func cmdEnv(args []string) {
 		cmdEnvActivate(args[1:])
 	case "code":
 		cmdEnvCode(args[1:])
+	case "exec":
+		cmdExec(args[1:])
+	case "forward", "port-forward", "pf":
+		cmdForward(args[1:])
 	case "share":
 		cmdShare(args[1:])
 	case "deactivate", "down":
@@ -632,7 +647,7 @@ func cmdEnvActivate(args []string) {
 	if err != nil {
 		fatalf("sync: %v", err)
 	}
-	execURL, err := c.EnvExecURL(id)
+	execURL, err := c.EnvExecURL(id, nil, true, true)
 	if err != nil {
 		fatalf("exec: %v", err)
 	}
@@ -711,6 +726,164 @@ func cmdEnvCode(args []string) {
 	if err := openBrowser(url); err != nil {
 		fmt.Fprintf(os.Stderr, "open: %v\n", err)
 		fmt.Printf("ouvrez cette URL dans votre navigateur: %s\n", url)
+	}
+}
+
+func cmdExec(args []string) {
+	fs := flag.NewFlagSet("exec", flag.ExitOnError)
+	name := fs.String("name", "", "environment name (default: zeta.yaml or context directory name)")
+	contextDir := fs.String("context", ".", "local context directory")
+	interactive := fs.Bool("i", false, "keep stdin open")
+	ttyFlag := fs.Bool("t", false, "allocate a pseudo-TTY")
+	both := fs.Bool("it", false, "interactive TTY (shorthand for -i -t)")
+	_ = fs.Parse(args)
+	command := fs.Args()
+	tty := *ttyFlag || *both
+	if len(command) == 0 {
+		tty = true
+	}
+	useStdin := *interactive || *both || tty
+	c := mustClient()
+	cfg := mustConfig()
+	proj, root, err := project.Load(*contextDir)
+	if err != nil {
+		fatalf("zeta.yaml: %v", err)
+	}
+	id := envName(firstNonEmpty(*name, proj.Name), root)
+	if err := c.ActivateEnv(context.Background(), id); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") && !strings.Contains(err.Error(), "zeta init") {
+			fatalf("exec: environment %s not found; run 'zeta init' first", id)
+		}
+		fatalf("exec: %v", err)
+	}
+	execURL, err := c.EnvExecURL(id, command, tty, useStdin)
+	if err != nil {
+		fatalf("exec: %v", err)
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), terminationSignals()...)
+	defer stop()
+	conn, err := syncer.DialExec(ctx, execURL, cfg.Cookie)
+	if err != nil {
+		fatalf("exec: %v", err)
+	}
+	defer conn.Close()
+	if tty {
+		if err := syncer.RunShell(ctx, conn, os.Stdin, os.Stdout); err != nil {
+			fmt.Fprintf(os.Stderr, "shell: %v\n", err)
+		}
+		return
+	}
+	var in io.Reader
+	if useStdin {
+		in = os.Stdin
+	}
+	code, err := syncer.RunExec(ctx, conn, in, os.Stdout)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "exec: %v\n", err)
+		if code == 0 {
+			code = 1
+		}
+	}
+	os.Exit(code)
+}
+
+func cmdForward(args []string) {
+	fs := flag.NewFlagSet("port-forward", flag.ExitOnError)
+	name := fs.String("name", "", "environment name (default: zeta.yaml or context directory name)")
+	contextDir := fs.String("context", ".", "local context directory")
+	address := fs.String("address", "127.0.0.1", "local address to bind")
+	var specs stringList
+	fs.Var(&specs, "p", "port mapping [LOCAL:]REMOTE (repeatable)")
+	_ = fs.Parse(args)
+	allSpecs := append(specs.values(), fs.Args()...)
+	if len(allSpecs) == 0 {
+		fatalf("usage: zeta port-forward -p [LOCAL:]REMOTE [--name ENV]")
+	}
+	c := mustClient()
+	cfg := mustConfig()
+	proj, root, err := project.Load(*contextDir)
+	if err != nil {
+		fatalf("zeta.yaml: %v", err)
+	}
+	id := envName(firstNonEmpty(*name, proj.Name), root)
+	if err := c.ActivateEnv(context.Background(), id); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "not found") && !strings.Contains(err.Error(), "zeta init") {
+			fatalf("forward: environment %s not found; run 'zeta init' first", id)
+		}
+		fatalf("forward: %v", err)
+	}
+	type mapping struct{ local, remote int }
+	var mappings []mapping
+	for _, spec := range allSpecs {
+		local, remote, err := parsePortSpec(spec)
+		if err != nil {
+			fatalf("forward: %v", err)
+		}
+		mappings = append(mappings, mapping{local: local, remote: remote})
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), terminationSignals()...)
+	defer stop()
+	for _, m := range mappings {
+		rawURL, err := c.EnvPortForwardURL(id, m.remote)
+		if err != nil {
+			fatalf("forward: %v", err)
+		}
+		ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *address, m.local))
+		if err != nil {
+			fatalf("forward: %v", err)
+		}
+		port := m.local
+		if tcp, ok := ln.Addr().(*net.TCPAddr); ok {
+			port = tcp.Port
+		}
+		fmt.Printf("forwarding %s:%d -> environment %s:%d\n", *address, port, id, m.remote)
+		go serveForward(ctx, ln, rawURL, cfg.Cookie)
+	}
+	<-ctx.Done()
+}
+
+func parsePortSpec(spec string) (int, int, error) {
+	parts := strings.Split(spec, ":")
+	switch len(parts) {
+	case 1:
+		port, err := strconv.Atoi(parts[0])
+		if err != nil || port < 1 || port > 65535 {
+			return 0, 0, fmt.Errorf("invalid port %q (want [LOCAL:]REMOTE)", spec)
+		}
+		return port, port, nil
+	case 2:
+		local, err1 := strconv.Atoi(parts[0])
+		remote, err2 := strconv.Atoi(parts[1])
+		if err1 != nil || err2 != nil || local < 1 || local > 65535 || remote < 1 || remote > 65535 {
+			return 0, 0, fmt.Errorf("invalid port mapping %q (want [LOCAL:]REMOTE)", spec)
+		}
+		return local, remote, nil
+	default:
+		return 0, 0, fmt.Errorf("invalid port mapping %q (want [LOCAL:]REMOTE)", spec)
+	}
+}
+
+func serveForward(ctx context.Context, ln net.Listener, rawURL, cookie string) {
+	defer ln.Close()
+	go func() {
+		<-ctx.Done()
+		_ = ln.Close()
+	}()
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		go func(c net.Conn) {
+			defer c.Close()
+			ws, err := syncer.DialTunnel(ctx, rawURL, cookie)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "forward: %v\n", err)
+				return
+			}
+			defer ws.Close()
+			_ = syncer.Tunnel(ctx, ws, c)
+		}(conn)
 	}
 }
 
