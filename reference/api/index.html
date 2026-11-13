@@ -653,6 +653,8 @@
       
         
       
+        
+      
     
     
     
@@ -780,6 +782,34 @@
     
   
     CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../user-guide/docker-users/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coming from Docker or kubectl
   
 
     
@@ -1390,6 +1420,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#port-forward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Port forward
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1910,6 +1951,17 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#port-forward" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Port forward
+      
+    </span>
+  </a>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2193,6 +2245,11 @@ backward compatibility, but new environments and build Jobs use the header.</p>
 <td>Interactive exec WebSocket</td>
 </tr>
 <tr>
+<td><code>GET</code></td>
+<td><code>/api/envs/{id}/portforward</code></td>
+<td>TCP port-forward WebSocket</td>
+</tr>
+<tr>
 <td><code>POST</code></td>
 <td><code>/api/envs/{id}/ide</code></td>
 <td>Enable the IDE sidecar and return the browser URL</td>
@@ -2414,6 +2471,10 @@ StorageClass is chosen by the platform (<code>--storage-class</code> /
 <td>Raw stdin bytes</td>
 </tr>
 <tr>
+<td><code>c</code></td>
+<td>Close stdin (client to server)</td>
+</tr>
+<tr>
 <td><code>r</code></td>
 <td>JSON resize <code>{"cols":120,"rows":30}</code></td>
 </tr>
@@ -2421,9 +2482,62 @@ StorageClass is chosen by the platform (<code>--storage-class</code> /
 <td><code>o</code></td>
 <td>Raw stdout/stderr bytes (server to client)</td>
 </tr>
+<tr>
+<td><code>e</code></td>
+<td>JSON exit <code>{"code":0,"error":"..."}</code> (server to client)</td>
+</tr>
 </tbody>
 </table>
-<p>The exec runs in the <code>env</code> container, in <code>/workspace</code>, with a TTY.</p>
+<p>Query parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>cmd</code></td>
+<td>Command argument (repeatable). Omitted means an interactive shell.</td>
+</tr>
+<tr>
+<td><code>tty=1</code></td>
+<td>Allocate a pseudo-TTY.</td>
+</tr>
+<tr>
+<td><code>stdin=0</code></td>
+<td>Do not attach stdin (the remote command sees EOF immediately).</td>
+</tr>
+</tbody>
+</table>
+<p>The exec runs in the <code>env</code> container from <code>/workspace</code>. A provided command is
+wrapped as <code>sh -c 'cd /workspace; exec "$@"'</code> so argument boundaries are
+preserved. The final <code>e</code> frame carries the exit code.</p>
+<h3 id="port-forward">Port forward<a class="headerlink" href="#port-forward" title="Permanent link">&para;</a></h3>
+<p><code>GET /api/envs/{id}/portforward?port=8080</code> upgrades to a WebSocket tunnel. The
+portal port-forwards the requested TCP port from the environment pod and sends
+one control frame first:</p>
+<table>
+<thead>
+<tr>
+<th>First byte</th>
+<th>Payload</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>o</code></td>
+<td>Ready; raw bytes follow in both directions</td>
+</tr>
+<tr>
+<td><code>e</code></td>
+<td>JSON error <code>{"error":"..."}</code> and the connection closes</td>
+</tr>
+</tbody>
+</table>
+<p>After the ready frame, each WebSocket message carries raw TCP bytes. The CLI
+opens one tunnel per accepted local connection.</p>
 <h2 id="sync-websockets">Sync WebSockets<a class="headerlink" href="#sync-websockets" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

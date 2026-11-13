@@ -16,7 +16,7 @@
         <link rel="prev" href="../../getting-started/quickstart/">
       
       
-        <link rel="next" href="../builds/">
+        <link rel="next" href="../docker-users/">
       
       
         
@@ -655,6 +655,8 @@
       
         
       
+        
+      
     
     
     
@@ -1012,6 +1014,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#run-commands-and-forward-ports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run commands and forward ports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#exit-codes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1037,6 +1050,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../docker-users/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Coming from Docker or kubectl
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1671,6 +1712,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#run-commands-and-forward-ports" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Run commands and forward ports
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#exit-codes" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1804,6 +1856,14 @@ API, streams logs, downloads artifacts, and manages persistent environments.</p>
 <tr>
 <td><code>zeta activate</code></td>
 <td>Start it, open a shell, and sync files</td>
+</tr>
+<tr>
+<td><code>zeta exec</code></td>
+<td>Run a command or interactive shell in an environment</td>
+</tr>
+<tr>
+<td><code>zeta port-forward</code></td>
+<td>Expose an environment port on localhost</td>
 </tr>
 <tr>
 <td><code>zeta deactivate</code></td>
@@ -2035,6 +2095,14 @@ automatically. A volume in use by a build cannot be resized or deleted.</p>
 <td><code>--name</code>, <code>--context</code>, <code>--exclude</code> (repeatable)</td>
 </tr>
 <tr>
+<td><code>zeta exec</code></td>
+<td><code>--name</code>, <code>--context</code>, <code>-i</code>, <code>-t</code>, <code>-it</code>, <code>-- COMMAND...</code></td>
+</tr>
+<tr>
+<td><code>zeta port-forward</code></td>
+<td><code>--name</code>, <code>--context</code>, <code>-p [LOCAL:]REMOTE</code> (repeatable), <code>--address</code></td>
+</tr>
+<tr>
 <td><code>zeta code</code></td>
 <td><code>--name</code>, <code>--context</code>, <code>--print</code></td>
 </tr>
@@ -2079,6 +2147,48 @@ guest in the dashboard. <code>zeta share list</code> shows active links and conn
 guests; <code>zeta share revoke SHARE_ID</code> invalidates a link immediately.</p>
 <p>See <a href="../environments/">Persistent environments</a> and
 <a href="../../reference/zeta-yaml/"><code>zeta.yaml</code> reference</a>.</p>
+<h2 id="run-commands-and-forward-ports">Run commands and forward ports<a class="headerlink" href="#run-commands-and-forward-ports" title="Permanent link">&para;</a></h2>
+<p><code>zeta exec</code> runs a command inside an environment without opening the full
+mirrored shell. It starts the environment first if needed and returns the
+command's exit code.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>zeta<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>--<span class="w"> </span>go<span class="w"> </span><span class="nb">test</span><span class="w"> </span>./...
+<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>zeta<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w">                       </span><span class="c1"># interactive shell</span>
+<a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>zeta<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>-it<span class="w"> </span>--<span class="w"> </span>bash<span class="w"> </span>-l<span class="w">            </span><span class="c1"># explicit shell</span>
+</code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-i</code></td>
+<td>Keep stdin attached</td>
+</tr>
+<tr>
+<td><code>-t</code></td>
+<td>Allocate a pseudo-TTY</td>
+</tr>
+<tr>
+<td><code>-it</code></td>
+<td>Both (Docker-style shorthand)</td>
+</tr>
+</tbody>
+</table>
+<p>Without a command, <code>zeta exec</code> opens an interactive shell. Commands run from
+<code>/workspace</code>.</p>
+<p><code>zeta port-forward</code> tunnels a TCP port from the environment to your machine:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>zeta<span class="w"> </span>port-forward<span class="w"> </span>-p<span class="w"> </span><span class="m">8080</span>:80
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>zeta<span class="w"> </span>port-forward<span class="w"> </span>-p<span class="w"> </span><span class="m">3000</span><span class="w"> </span>-p<span class="w"> </span><span class="m">5432</span>:5432<span class="w"> </span>--address<span class="w"> </span><span class="m">0</span>.0.0.0
+</code></pre></div>
+<p><code>[LOCAL:]REMOTE</code> follows the Docker convention; <code>REMOTE</code> alone binds the same
+port locally. The default bind address is <code>127.0.0.1</code>; pass <code>--address 0.0.0.0</code>
+to expose it on your LAN. Each accepted local connection opens a fresh tunnel to
+the environment pod, so HTTP keep-alive and WebSocket clients both work.</p>
+<p>See <a href="../docker-users/">Coming from Docker or kubectl</a> for a side-by-side cheat
+sheet.</p>
 <h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2100,8 +2210,8 @@ guests; <code>zeta share revoke SHARE_ID</code> invalidates a link immediately.<
 </table>
 <p>Errors are written to <code>stderr</code> with the <code>zeta:</code> prefix.</p>
 <h2 id="help">Help<a class="headerlink" href="#help" title="Permanent link">&para;</a></h2>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>zeta<span class="w"> </span><span class="nb">help</span>
-<a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>zeta<span class="w"> </span>--help
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>zeta<span class="w"> </span><span class="nb">help</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>zeta<span class="w"> </span>--help
 </code></pre></div>
 
 
